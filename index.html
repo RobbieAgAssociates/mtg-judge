@@ -430,7 +430,7 @@ async function namesIn(text,max=8){
     if(nm.length<4) continue; const i=l.indexOf(nm);
     if(i>-1&&!isWord(l[i-1])&&!isWord(l[i+nm.length])) found.push(nm); }
   found.sort((a,b)=>b.length-a.length);
-  const keep=found.filter((nm,i)=>!found.slice(0,i).some(o=>o.includes(nm)));
+  const keep=found.filter((nm,i)=>!found.slice(0,i).some(o=>o.includes(nm))&&!(typeof KEYWORDS!=="undefined"&&KEYWORDS.has(nm)));
   return [...new Set(keep.map(nm=>CARDDB.byName.get(nm)))].slice(0,max);
 }
 function findDeck(name){ const n=String(name||"").toLowerCase().trim(); if(!n) return null; return DATA.decks.find(d=>d.name.toLowerCase()===n||d.id===n||d.commander.toLowerCase().includes(n)||n.includes(d.name.toLowerCase())); }
@@ -1230,8 +1230,8 @@ function keywordRules(q){
     out.push(...CR.rules.filter(r=>r.n.startsWith(n)&&/^[a-d]$/.test(r.n.slice(n.length))).slice(0,3)); }
   return out.slice(0,7);
 }
-async function rulesBlock(q,n=4){
-  const kw=keywordRules(q), seen=new Set(kw.map(r=>r.n));
+async function rulesBlock(q,n=4,full){
+  const kw=keywordRules(full||q), seen=new Set(kw.map(r=>r.n));
   const rs=[...kw,...searchRules(q,n+kw.length).filter(r=>!seen.has(r.n))].slice(0,n+Math.min(kw.length,4)); if(!rs.length) return "";
   const gl=searchGlossary(q,1).filter(g=>!/Obsolete/.test(g.term));
   return rs.map(r=>`- **CR ${r.n}** ${clip(r.t,520)}`).join("\n")+(gl.length?`\n- **Glossary: ${gl[0].term}** ${clip(gl[0].def,300)}`:"");
@@ -1248,7 +1248,7 @@ async function lookupChat(q){
   const rest=stripNames(q,cards), ws=words(rest);
   const parts=[`Here's what the saved data has on this.`];
   if(cards.length) parts.push("### Cards\n"+await cardBlock(cards,ws));
-  const rules=await rulesBlock(ws.length?rest:q,4); if(rules) parts.push("### Rules that match\n"+rules);
+  const rules=await rulesBlock(ws.length?rest:q,4,q); if(rules) parts.push("### Rules that match\n"+rules);
   const d=DATA.decks.find(x=>q.toLowerCase().includes(x.name.toLowerCase()));
   if(d&&ws.length){ const hits=d.sections.map(s=>({s,sc:score(plain(s.html),ws,"")})).filter(o=>o.sc>0).sort((a,b)=>b.sc-a.sc).slice(0,1);
     for(const h of hits) parts.push(`### From your ${d.name} notes: ${h.s.title.replace(/^\d+\.\s*/,"")}\n${clip(plain(h.s.html),700)}`); }
@@ -1263,7 +1263,7 @@ async function lookupMove(e,g){
   const rest=stripNames(e.text,cards), ws=words(rest);
   const parts=[];
   parts.push(cards.length?"### Cards in this move\n"+await cardBlock(cards,ws):"### Cards in this move\nNo card names recognized. Use exact card names so the Judge can look them up.");
-  const fromMove=keywordRules(rest), fromCards=keywordRules(cards.map(c=>c.text).join(" ")).filter(r=>r.n.startsWith("702"));
+  const fromMove=keywordRules(e.text), fromCards=keywordRules(cards.map(c=>c.text).join(" ")).filter(r=>r.n.startsWith("702"));
   const kwRules=[...fromMove,...fromCards.filter(r=>!fromMove.some(m=>m.n===r.n))], seen=new Set(kwRules.map(r=>r.n));
   const moveRules=ws.length?searchRules(rest,3).filter(r=>!seen.has(r.n)):[];
   const rl=[...kwRules.slice(0,6),...moveRules].slice(0,7);
