@@ -659,7 +659,7 @@ function homeEl(){
     <div class="mosaic" aria-hidden="true">${DATA.decks.map(d=>`<div style="background-image:url('${d.art}')"></div>`).join("")}</div>
     <div class="hero-copy">
       <span class="eyebrow">Commander rules judge · ${esc(CR.effective.replace("These rules are effective as of ","Rules effective ").replace(/\.$/,""))}</span>
-      <h1>Settle the rules. Track the game. Sharpen your decks.</h1>
+      <h1>MTG: The Judge</h1>
       <p>Ask questions in plain English and get answers from the official rules, every card's text and rulings, and your four Commander decks.</p>
       <form class="hero-search" id="herosearch"><input type="search" id="hq" placeholder="Search a card, keyword or rule, e.g. trample" aria-label="Search cards, rules and notes"><button class="btn light" type="submit">Search</button></form>
       <div class="chips"><button class="btn" data-go="ask">Ask the Judge</button><button class="btn glass" data-go="game">${GAME.g?"Resume your game":"Track a game"}</button><button class="btn glass" data-go="ideas">Deck ideas</button></div>
