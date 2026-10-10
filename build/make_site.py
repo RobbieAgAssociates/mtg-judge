@@ -29,8 +29,8 @@ HEAD = f"""<!doctype html>
 <link rel="icon" href="{FAVICON}">
 <link rel="canonical" href="{SITE_URL}">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="MTG Judge">
-<meta property="og:title" content="MTG Judge">
+<meta property="og:site_name" content="MTG: The Judge">
+<meta property="og:title" content="MTG: The Judge">
 <meta property="og:description" content="{DESCRIPTION}">
 <meta property="og:url" content="{SITE_URL}">
 <meta property="og:image" content="{SITE_URL}img/temmet-naktamun-s-will-art.jpg">
