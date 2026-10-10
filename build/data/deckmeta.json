@@ -1,0 +1,14 @@
+{
+"Eternal Might":{"tagline":"Zombie tokens that loot, recur and drain.","plan":"Temmet loots on every attack and pumps your Zombies with each draw. Discarded creatures return as 4/4 Zombie copies.","bracket":"2","artist":"Douglas Shuler",
+ "stats":{"Lands":39,"Ramp":9,"Card draw":10,"Removal":9,"Board wipes":2},"strongest":"Recursion and steady value","weakest":"Commander protection",
+ "key":["Temmet, Naktamun's Will","Hashaton, Scarab's Fist","Rhet-Tomb Mystic","Archfiend of Ifnir","Lazotep Chancellor","The Scarab God","Maskwood Nexus","God-Pharaoh's Gift"]},
+"Living Energy":{"tagline":"Energy, artifacts and a 5/5 copy every combat.","plan":"Saheeli turns artifact spells into energy and copies your best permanent each combat. Lightning Runner and Aetherwind Basker can loop extra combats.","bracket":"2–3","artist":"Ernanda Souza",
+ "stats":{"Lands":38,"Ramp":14,"Card draw":11,"Removal":6,"Board wipes":3},"strongest":"Ramp and explosive turns","weakest":"Removal",
+ "key":["Saheeli, Radiant Creator","Lightning Runner","Aetherwind Basker","Aethertide Whale","Nissa, Worldsoul Speaker","Panharmonicon","Whirler Virtuoso","Reckless Fireweaver"]},
+"Counter Intelligence":{"tagline":"Counters, proliferate and two ways to win out of nowhere.","plan":"Station Inspirit to protect your artifacts, pile counters everywhere and multiply them, then win with Darksteel Reactor or Lux Artillery.","bracket":"2","artist":"Titus Lunter",
+ "stats":{"Lands":40,"Ramp":11,"Card draw":12,"Removal":6,"Board wipes":3},"strongest":"Card draw and alternate wins","weakest":"Slow start",
+ "key":["Inspirit, Flagship Vessel","Darksteel Reactor","Deepglow Skate","Lux Artillery","Tekuthal, Inquiry Dominus","Kilo, Apogee Mind","Surge Conductor","Steel Overseer"]},
+"World Shaper":{"tagline":"Sacrifice lands, make giants, drain the table.","plan":"Hearthhull draws cards by sacrificing lands and, fully stationed, drains 2 from each opponent per land. Landfall makes tokens and extra combats.","bracket":"2","artist":"Daniel Ljunggren",
+ "stats":{"Lands":42,"Ramp":13,"Card draw":11,"Removal":9,"Board wipes":3},"strongest":"Removal and board presence","weakest":"Graveyard hate",
+ "key":["Hearthhull, the Worldseed","The Gitrog Monster","Dakmor Salvage","Szarel, Genesis Shepherd","Titania, Protector of Argoth","Omnath, Locus of Rage","Mayhem Devil","Korvold, Fae-Cursed King"]}
+}
