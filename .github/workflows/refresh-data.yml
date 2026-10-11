@@ -1,0 +1,57 @@
+name: Refresh MTG data
+
+# Monthly: pull new cards, rulings, rules, precons, combos, EDHREC picks and judges' tips,
+# rebuild the site, and republish GitHub Pages if anything changed.
+on:
+  schedule:
+    - cron: "17 9 1 * *"   # 09:17 UTC on the 1st of each month
+  workflow_dispatch: {}      # also runnable by hand from the Actions tab
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow (shrinks new commander art)
+        run: pip install pillow==10.4.0
+
+      - name: Refresh data
+        run: python3 build/refresh_data.py
+
+      - name: Rebuild the site
+        run: python3 build/make_site.py
+
+      - name: Commit and push if anything changed
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No data changes."
+          else
+            git commit -m "Refresh MTG data ($(date -u +%Y-%m-%d))"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Rebuild GitHub Pages
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" || echo "Pages will rebuild on its own."

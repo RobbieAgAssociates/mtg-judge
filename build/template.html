@@ -288,6 +288,8 @@ const CR = __CR__;
 const SYM = __SYMBOLS__;
 const ART = __ART__;
 const PRECON = __PRECONMETA__;
+const TOPICS = __TOPICS__;
+const STATS = __STATS__;   // counts and dates, computed from the data at build time
 const DECKMETA = __DECKMETA__;
 const EDHREC = __EDHREC__;
 const TYPES=["Creature","Planeswalker","Instant","Sorcery","Artifact","Enchantment","Land"];
@@ -448,6 +450,7 @@ async function namesIn(text,max=8){
       if(j===0||/[.!?]\s*$/.test(raw.slice(0,j))) continue;                 // and not just a capital at the start of a sentence
     }
     found.push(nm); }
+  if(typeof ALIAS!=="undefined") for(const [short,full] of ALIAS){ const j=raw.indexOf(short); if(j>-1&&!/[A-Za-z]/.test(raw[j+short.length]||"")&&CARDDB.byName.has(full.toLowerCase())) found.push(full.toLowerCase()); }
   found.sort((a,b)=>b.length-a.length);
   const keep=found.filter((nm,i)=>!found.slice(0,i).some(o=>o.includes(nm))&&!(typeof KEYWORDS!=="undefined"&&KEYWORDS.has(nm)));
   return [...new Set(keep.map(nm=>CARDDB.byName.get(nm)))].slice(0,max);
@@ -710,7 +713,7 @@ function deckTilesHTML(){ return `<div class="decks">${DATA.decks.map(d=>{ const
 function wireGo(el){ el.addEventListener("click",e=>{ if(e.target.closest(".cardref")) return; const b=e.target.closest("[data-go]"); if(b){ go(b.dataset.go); return; } const i=e.target.closest("[data-ideas]"); if(i){ IDEAS.deck=i.dataset.ideas; go("ideas"); } }); return el; }
 
 /* Home */
-const COUNTS={cards:34594,rulings:79706,combos:104143,precons:197};
+const COUNTS={cards:STATS.cards,rulings:STATS.rulings,combos:STATS.combos,precons:STATS.precons};
 function homeEl(){
   const art=document.createElement("div"); art.style.display="grid"; art.style.gap="44px";
   const m=DATA.decks.map(d=>DECKMETA[d.name]);
@@ -829,6 +832,8 @@ function rulesPage(main,ts){
   const art=document.createElement("article"); art.className="deck";
   art.innerHTML=`<div class="deckhead"><h2>Comprehensive Rules</h2><span class="meta">${esc(CR.effective)} ${CR.rules.length.toLocaleString()} rules, ${CR.glossary.length} glossary terms.</span></div>`;
   if(ts.length){
+    const qa=matchTopics(state.q,3);
+    if(qa.length){ const s=document.createElement("section"); s.className="sec"; s.innerHTML=`<h3>Quick answers</h3>${md(qa.map(topicBlock).join("\n\n"))}`; highlight(s,ts); art.appendChild(s); }
     const hits=searchRules(state.q,60), gl=searchGlossary(state.q,6);
     const sec=document.createElement("section"); sec.className="sec";
     sec.innerHTML=`<h3>Matching rules</h3>`+(hits.length?"":`<p class="empty">No rules match.</p>`);
@@ -857,7 +862,7 @@ function rulesPage(main,ts){
   main.appendChild(art);
 }
 
-/* ---------- Pre-built Commander decks (all 197 official precons) ---------- */
+/* ---------- Pre-built Commander decks (every official precon) ---------- */
 const PCF={q:"",colors:new Set(),year:"all"};
 const pcById=id=>PRECON.decks.find(p=>p.id===id);
 function pcArt(p){ return PRECON.art[p.lead]||null; }
@@ -872,6 +877,24 @@ function pcTile(p){
       <div class="actions"><button class="btn" data-go="pc-${p.id}">Open deck</button></div>
     </div></article>`;
 }
+/* Estimate what each card does from its Oracle text (used for precon analysis) */
+const ROLE_RX={
+  Ramp:/search your library for (?:a|up to (?:one|two|three)) [^.]*land card[^.]*onto the battlefield|\badd (?:\{|one mana|two mana|three mana|x mana|an amount of)|create (?:a|one|two|x|that many) treasure|you may play an additional land/,
+  "Card draw":/\bdraws? (?:a|one|two|three|four|x|that many|cards equal|an additional) cards?|draw cards equal|investigate|\bconnive/,
+  Removal:/(?:destroy|exile) (?:target|up to one target|another target)(?! card)|deals? (?:\d+|x|that much) damage to (?:any target|target creature|target permanent|target planeswalker)|return target (?:nonland )?(?:creature|permanent|nonland permanent)[^.]* to its owner's hand|counter target|(?:target|each) opponent sacrifices|gain control of target/,
+  "Board wipes":/(?:destroy|exile) (?:all|each) (?:other )?(?:\w+ )?(?:creatures|nonland|permanents|artifacts|enchantments|creature)|deals? (?:\d+|x) damage to each (?:other )?creature|all creatures get -|return all (?:other )?(?:creatures|nonland)/,
+  Protection:/\b(?:hexproof|indestructible|shroud|protection from|phase out|phases out)\b/
+};
+function roleCounts(cards){
+  const out={Lands:0,Ramp:0,"Card draw":0,Removal:0,"Board wipes":0};
+  const prot=[];
+  for(const c of cards){ if(c.commander) continue; const tl=c.type.split("//")[0], tx=(c.text||"").toLowerCase().replace(/\([^)]*\)/g,"");   // ignore reminder text
+    if(/Land/.test(tl)){ out.Lands+=c.count; continue; }
+    for(const k of ["Ramp","Card draw","Removal","Board wipes"]) if(ROLE_RX[k].test(tx)) out[k]+=c.count;
+    if(ROLE_RX.Protection.test(tx)) prot.push(c.name); }
+  return {stats:out,protection:prot};
+}
+
 function preconsEl(){
   const art=document.createElement("article"); art.className="deck";
   const years=[...new Set(PRECON.decks.map(p=>p.date.slice(0,4)))].sort().reverse();
@@ -930,8 +953,23 @@ function preconPageEl(id){
           <section class="sec curve"><h3>Mana curve</h3>${curveSVG({cards})}</section>
           <section class="sec"><h3>Card types</h3><div class="bars">${Object.entries(types).sort((x,y)=>y[1]-x[1]).map(([k,v])=>`<div class="bar"><span>${esc(k)}</span><span class="track"><span class="fill" style="width:${v/45*100}%"></span></span><span class="v">${v}</span></div>`).join("")}</div><p class="note">${total} cards found in the card database.</p></section>
         </div>
+        <section class="sec" id="pc-analysis"></section>
         <section class="sec" id="pc-combos"><h3>Combos</h3><p class="status">Checking Commander Spellbook…</p></section>
         <section class="sec"><div class="listhead"><h3>Decklist</h3><span class="count">${total} cards</span></div><div class="groups" id="pc-list"></div></section>`;
+      const rc=roleCounts(cards), gcs=cards.filter(c=>c.gc).map(c=>c.name);
+      const an=body.querySelector("#pc-analysis");
+      if(an){ const weak=Object.entries(rc.stats).filter(([k,v])=>BASE[k]&&v<BASE[k][0]*0.7).map(([k])=>k.toLowerCase());
+        const strong=Object.entries(rc.stats).filter(([k,v])=>BASE[k]&&k!=="Lands"&&v>=BASE[k][0]*1.2).map(([k])=>k.toLowerCase());
+        an.innerHTML=`<h3>Deck analysis (estimated)</h3>${barsHTML(rc.stats)}
+          <ul>
+            <li><strong>Plan:</strong> led by ${p.commander.map(c=>`<button type="button" class="cardref" data-card="${esc(c)}">${esc(c)}</button>`).join(" & ")} in ${p.ci?[...p.ci].map(x=>COLORNAME[x].toLowerCase()).join("-"):"colorless"}. Open the commander for its text; the deck is built around it.</li>
+            ${strong.length?`<li><strong>Strong in:</strong> ${esc(strong.join(", "))}.</li>`:""}
+            ${weak.length?`<li><strong>Light on:</strong> ${esc(weak.join(", "))}. These are the first places to upgrade.</li>`:""}
+            <li><strong>Protection:</strong> ${rc.protection.length?`${rc.protection.length} cards can protect permanents (${rc.protection.slice(0,4).map(esc).join(", ")}${rc.protection.length>4?"…":""}).`:"almost none, so expect the commander to be removed."}</li>
+            <li><strong>Game Changers:</strong> ${gcs.length?gcs.map(esc).join(", "):"none"}.</li>
+            <li id="pc-bracket"><strong>Estimated bracket:</strong> checking combos…</li>
+          </ul>
+          <p class="note">Counts are estimated from each card's text, so a few cards may be counted in two roles or missed. The gold tick marks a typical Commander deck.</p>`; linkCards(an); }
       const list=body.querySelector("#pc-list");
       for(const g of ["Commander","Creature","Planeswalker","Instant","Sorcery","Artifact","Enchantment","Battle","Land","Other"]){
         const xs=cards.filter(c=>g==="Commander"?c.commander:(!c.commander&&c.group===g)).sort((x,y)=>x.name.localeCompare(y.name)); if(!xs.length) continue;
@@ -939,6 +977,9 @@ function preconPageEl(id){
         xs.forEach(c=>{ const el=cardDetails(c,[],false); el.querySelector(".qty").textContent=c.count; gd.appendChild(el); }); list.appendChild(gd);
       }
       try{ const cb=await combosInDeck(p.name,6,pre); const li=x=>`<li><strong>${x.cards.map(esc).join(" + ")}</strong>${x.missing_card?` <span class="badge">add ${esc(x.missing_card)}</span>`:""}<br><span class="ctype">${x.results.map(esc).join(", ")}</span></li>`;
+        const br=body.querySelector("#pc-bracket"); if(br){ const two=cb.in_deck.filter(x=>x.cards.length===2&&x.results.some(r=>/Infinite/i.test(r)));
+          const b=gcs.length>3?"4 (Optimized)":gcs.length?"3 (Upgraded)":two.length?"2 to 3 (has a two-card infinite combo)":"2 (Core)";
+          br.innerHTML=`<strong>Estimated bracket:</strong> ${esc(b)}. ${gcs.length?`${gcs.length} Game Changer${gcs.length>1?"s":""}.`:"No Game Changers."} ${two.length?`Two-card infinite: ${esc(two.map(x=>x.cards.join(" + ")).join("; "))}.`:"No two-card infinite combos found."}`; }
         const box=body.querySelector("#pc-combos"); if(box) box.innerHTML=`<h3>Combos</h3><h4 class="label">In the deck</h4>${cb.in_deck.length?`<ul>${cb.in_deck.map(li).join("")}</ul>`:'<p class="note">None found.</p>'}<h4 class="label">One card away</h4>${cb.one_card_away.length?`<ul>${cb.one_card_away.map(li).join("")}</ul>`:'<p class="note">None found.</p>'}<p class="note">From Commander Spellbook. Combos can push a deck above Bracket 2.</p>`;
       }catch(e){ const box=body.querySelector("#pc-combos"); if(box) box.innerHTML=`<h3>Combos</h3><p class="empty">The combo database couldn't be loaded.</p>`; }
     }catch(e){ const body=art.querySelector("#pc-body"); if(body) body.innerHTML=`<p class="empty">${esc(CARDDB.error||"The card database couldn't be loaded.")}</p>`; }
@@ -968,7 +1009,7 @@ const BANNERS={ask:["Ask the Judge","Plain-English answers from the rules, every
   game:["Game Tracker","Log each move. The Judge checks it against the rules and every card involved."],
   ideas:["Deck Ideas","Upgrades, combos, budget swaps and game plans for one deck at a time."],
   comparison:["Your Decks","Four Commander decks, side by side."],
-  precons:["Pre-built Decks","All 197 official Commander precons, from 2011 to now. Open one for its decklist, card text, curve and combos."],
+  precons:["Pre-built Decks",`All ${STATS.precons} official Commander precons, from ${STATS.preconFirst} to now. Open one for its decklist, card text, curve, analysis and combos.`],
   all:["Search","Cards, notes and rules across all four decks."],
   lookup:["Card Lookup","Official text, legality, prices and rulings for every Magic card."],
   rules:["Comprehensive Rules","The full official rules, searchable and linked."],
@@ -1074,6 +1115,9 @@ const TOOLS = [
   {name:"lookup_card", description:"Official Oracle text of any Magic card by name (exact or close). Returns up to 5 {name, cost, type, stats, text, commander (legality)}. Use for every card anyone mentions.",
     inputSchema:{type:"object",properties:{name:{type:"string"}},required:["name"]},
     execute:async(i)=>{ progress(`Looking up ${String(i.name||"")}`); const r=await lookupCard(String(i.name||"")); if(!r.length) throw new Error("No card named "+i.name+". Try search_all_cards."); return r.map(cardOut); }},
+  {name:"rules_index", description:"Hand-checked answers to common rules questions (deathtouch + trample, responding, the stack, summoning sickness, commander tax/damage/zone, copies, triggers, etc.), each with the CR rules it comes from. Check it first, then verify with get_rule.",
+    inputSchema:{type:"object",properties:{question:{type:"string"}},required:["question"]},
+    execute:(i)=>{ progress("Checking the rules index"); return matchTopics(String(i.question||""),3).map(tp=>({topic:tp.title,answer:tp.answer,rules:tp.rules})); }},
   {name:"get_card_rulings", description:"Official rulings for one card (Wizards of the Coast rulings first, then Scryfall notes), with dates. Use whenever a card's interaction is tricky.",
     inputSchema:{type:"object",properties:{name:{type:"string"}},required:["name"]},
     execute:async(i)=>{ progress(`Reading rulings for ${String(i.name||"")}`); const r=await rulingsFor(String(i.name||"")); if(!r.card) throw new Error("No card named "+i.name); return {card:r.card,rulings:r.rulings.slice(0,20)}; }},
@@ -1086,7 +1130,7 @@ const TOOLS = [
   {name:"combos_in_deck", description:"Commander Spellbook combos fully inside a deck, and combos one card away (within its colors). Deck = one of the user's four decks or a pre-built Commander deck name. Returns {in_deck, one_card_away} with up to 10 each.",
     inputSchema:{type:"object",properties:{deck:{type:"string"}},required:["deck"]},
     execute:async(i)=>{ progress(`Finding combos in ${String(i.deck||"")}`); return combosInDeck(String(i.deck||""),10); }},
-  {name:"get_precon_decklist", description:"Full list of any official pre-built Commander deck (197 decks, 2011 to now) by deck name or commander, e.g. an opponent's deck. Returns {name, commander, released, cards}.",
+  {name:"get_precon_decklist", description:`Full list of any official pre-built Commander deck (${STATS.precons} decks, ${STATS.preconFirst} to now) by deck name or commander, e.g. an opponent's deck. Returns {name, commander, released, cards}.`,
     inputSchema:{type:"object",properties:{deck:{type:"string"}},required:["deck"]},
     execute:async(i)=>{ progress(`Reading the pre-built deck ${String(i.deck||"")}`); const p=await findPrecon(String(i.deck||"")); if(!p) throw new Error("No pre-built Commander deck matches "+i.deck); return {name:p.name,commander:p.commander,released:p.date,cards:preconCards(p)}; }},
   {name:"get_edhrec", description:"EDHREC's most-played and highest-synergy cards for one of the user's four commanders (unofficial popularity data), each with % of decks, synergy, and whether the user's deck already has it.",
@@ -1261,23 +1305,23 @@ const ERRORS={cancelled:"Stopped.",not_granted:"Claude isn't allowed for this pa
 const SOURCES=[
   {group:"Official rules",items:[
     ["Comprehensive Rules","https://magic.wizards.com/en/rules",()=>`${CR.effective.replace("These rules are effective as of ","Effective ").replace(/\.$/,"")}. ${CR.rules.length.toLocaleString()} rules and ${CR.glossary.length} glossary terms, saved in full.`],
-    ["Official card rulings (via Scryfall)","https://scryfall.com/docs/api/bulk-data",()=>"About 80,000 rulings for 20,000 cards from Wizards of the Coast and Scryfall, saved October 10, 2026."],
-    ["Release notes","https://magic.wizards.com/en/news/feature/edge-of-eternities-release-notes",()=>"Wizards' general notes on mechanics for 13 sets, Innistrad Remastered (Jan 2025) to Reality Fracture (Oct 2026). Card-by-card notes are covered by the rulings above."],
+    ["Official card rulings (via Scryfall)","https://scryfall.com/docs/api/bulk-data",()=>`${STATS.rulings.toLocaleString()} rulings for ${STATS.rulingCards.toLocaleString()} cards from Wizards of the Coast and Scryfall, saved ${STATS.dataDate}.`],
+    ["Release notes","https://magic.wizards.com/en/news/feature/edge-of-eternities-release-notes",()=>`Wizards' general notes on mechanics for ${STATS.releaseSets} sets, ${STATS.releaseFirst} to ${STATS.releaseLast}. Card-by-card notes are covered by the rulings above.`],
     ["Commander format and Brackets","https://magic.wizards.com/en/formats/commander",()=>"Commander rules, power brackets and the Game Changers list (flags saved with each card)."],
     ["Banned and restricted list","https://magic.wizards.com/en/banned-restricted-list",()=>"Commander legality is saved with each card."],
     ["Tournament rules (MTR, IPG)","https://wpn.wizards.com/en/rules-documents",()=>"For tournament penalties and procedures. Linked, not saved."],
   ]},
   {group:"Cards and decks",items:[
-    ["Scryfall card database","https://scryfall.com",()=>"Official Oracle text, Commander legality, color identity and USD prices for 34,594 cards, saved October 10, 2026."],
+    ["Scryfall card database","https://scryfall.com",()=>`Official Oracle text, Commander legality, color identity and USD prices for ${STATS.cards.toLocaleString()} cards, saved ${STATS.dataDate}.`],
     ["Card images (Scryfall)","https://scryfall.com",()=>"Images of all 318 cards in your decks plus your four commanders' art, saved with this site. Card images and art © Wizards of the Coast; each banner credits its artist."],
     ["Gatherer","https://gatherer.wizards.com",()=>"Wizards' own card database. Each card links to it as a second check."],
-    ["Pre-built Commander decklists (MTGJSON)","https://mtgjson.com",()=>"All 197 official pre-built Commander decks from 2011 to October 2026."],
+    ["Pre-built Commander decklists (MTGJSON)","https://mtgjson.com",()=>`All ${STATS.precons} official pre-built Commander decks from ${STATS.preconFirst} to ${STATS.preconLast}, each with commander art and an estimated analysis.`],
     ["Your four decks","https://magic.wizards.com/en/news/announcements/edge-of-eternities-commander-decklists",()=>"Official lists for Eternal Might, Living Energy (Aetherdrift Commander), Counter Intelligence and World Shaper (Edge of Eternities Commander), with saved analysis notes."],
   ]},
   {group:"Community (helpful, not official)",items:[
-    ["Commander Spellbook","https://commanderspellbook.com",()=>"104,143 Commander-legal combos of up to four cards, saved October 10, 2026. Step-by-step instructions saved for combos that use your decks' cards."],
-    ["EDHREC","https://edhrec.com",()=>"Most-played and highest-synergy cards for your four commanders, saved October 10, 2026."],
-    ["MTG Judges' Rules Tips blog","https://blogs.magicjudges.org/rulestips/",()=>"Index of 1,609 articles (titles, topics and links) for further reading."],
+    ["Commander Spellbook","https://commanderspellbook.com",()=>`${STATS.combos.toLocaleString()} Commander-legal combos of up to four cards, saved ${STATS.dataDate}. Step-by-step instructions saved for combos that use your decks' cards.`],
+    ["EDHREC","https://edhrec.com",()=>`Most-played and highest-synergy cards for your four commanders, saved ${STATS.edhrecDate}.`],
+    ["MTG Judges' Rules Tips blog","https://blogs.magicjudges.org/rulestips/",()=>`Index of ${STATS.judgeTips.toLocaleString()} articles (titles, topics and links) for further reading.`],
   ]},
 ];
 function sourcesEl(){
@@ -1415,11 +1459,40 @@ async function extrasBlock(q,cards){
   try{ const jt=await searchJudgeTips(q,3); if(jt.length) out.push("### Further reading (MTG Judges' blog)\n"+jt.map(x=>`- [${x.title}](${x.url})`).join("\n")); }catch(e){}
   return out.join("\n\n");
 }
+/* Hand-checked rules index: a topic matches when every word group has a hit */
+function matchTopics(text,max=2){
+  const l=" "+String(text).toLowerCase().replace(/[’]/g,"'")+" ";
+  return TOPICS.map(tp=>{ let s=tp.match.length*10; for(const g of tp.match){ const hit=g.find(a=>l.includes(a)); if(!hit) return null; s+=hit.length; } return {tp,s}; })
+    .filter(Boolean).sort((a,b)=>b.s-a.s).slice(0,max).map(x=>x.tp);
+}
+function topicBlock(tp){ return `**${tp.title}:** ${tp.answer}\n`+tp.rules.map(n=>{ const i=RULE.get(n); return i==null?"":`- **CR ${n}** ${clip(CR.rules[i].t,420)}`; }).filter(Boolean).join("\n"); }
+
+/* The saved deck notes that best match a question, one bullet at a time */
+function deckNotes(q,cards,ws){
+  const l=q.toLowerCase();
+  const decks=DATA.decks.filter(x=>l.includes(x.name.toLowerCase())||l.includes(x.commander.split(",")[0].toLowerCase())||cards.some(c=>x.cards.some(k=>k.name===c.name)));
+  if(!decks.length) return [];
+  const skip=new Set(["deck","decks","my","work","together","does","happen","happens","what","how",...decks.flatMap(d=>d.name.toLowerCase().split(/\s+/))]);
+  const kws=ws.filter(w=>!skip.has(w));
+  const items=[];
+  for(const d of decks) for(const s of d.sections){
+    if(/Summary|Power level|Mana curve/.test(s.title)) continue;
+    const box=document.createElement("div"); box.innerHTML=s.html;
+    box.querySelectorAll("li").forEach(li=>{ const c=li.cloneNode(true); c.querySelectorAll("ul").forEach(u=>u.remove()); let text=c.textContent.trim();
+      if(/:$/.test(text)&&li.querySelector("ul")) text=text+" "+[...li.querySelectorAll(":scope > ul > li")].map(x=>x.textContent.trim()).join(" ");
+      if(text.length<20) return;
+      const named=cards.length?cards.filter(cd=>text.toLowerCase().includes(cd.name.split(",")[0].toLowerCase())).length/cards.length:0;
+      const sc=coverage(text,kws)+0.6*named; if(sc>0.15) items.push({deck:d.name,section:s.title.replace(/^\d+\.\s*/,""),text,named,sc}); });
+  }
+  return items.sort((a,b)=>b.sc-a.sc);
+}
+
 /* How much of the question's wording a text covers (0..1) */
 function coverage(text,ws){ if(!ws.length) return 0; const l=String(text).toLowerCase(); return ws.filter(w=>l.includes(w)).length/ws.length; }
 const firstSentence=s=>clip(String(s).replace(/\n[\s\S]*$/,"").split(/(?<=\.)\s/)[0],260);
+const DECKNAMES=new Set(DATA.decks.map(d=>d.name.toLowerCase()));
 async function lookupChat(q){
-  let cards=[]; try{ cards=await namesIn(q,5); }catch(e){}
+  let cards=[]; try{ cards=(await namesIn(q,6)).filter(c=>!DECKNAMES.has(c.lname)).slice(0,5); }catch(e){}   // "World Shaper" is a deck here, not the card
   const rest=stripNames(q,cards), ws=words(rest);
   // evidence: keyword rules, the best general rule match, and the most relevant official ruling
   const kw=keywordRules(q), top=searchRules(ws.length?rest:q,4).filter(r=>!kw.some(k=>k.n===r.n));
@@ -1434,38 +1507,57 @@ async function lookupChat(q){
       if(sc>best){ best=sc; lead=r; leadSentence=s; }
     }
   }
-  // the inferred answer comes from the strongest piece of evidence
+  // the inferred answer comes from the strongest piece of evidence: a hand-checked topic, then an official ruling, then the best rule sentence
+  const topics=matchTopics(q);
+  const notes=deckNotes(q,cards,ws), note=notes[0]&&notes[0].named===1&&cards.length?notes[0]:null;
   let inferred, source;
-  if(bestRuling&&bestRuling.cov>=0.5){ inferred=firstSentence(bestRuling.text); source=`the official ruling on ${bestRuling.card} (${bestRuling.date})`; }
+  if(note){ inferred=clip(note.text,320); source=`your ${note.deck} notes (${note.section})`; }
+  else if(topics.length){ inferred=topics[0].answer; source=`the rules index: ${topics[0].title}, CR ${topics[0].rules.join(", ")}`; }
+  else if(bestRuling&&bestRuling.cov>=0.5){ inferred=firstSentence(bestRuling.text); source=`the official ruling on ${bestRuling.card} (${bestRuling.date})`; }
   else if(lead){ inferred=clip(leadSentence,300); source=`CR ${lead.n}`; }
   else { inferred="The saved rules and cards don't clearly cover this."; source="no direct match"; }
   const parts=[];
   parts.push(`**Your question, restated:** ${clip(q,300)}${cards.length?` (cards: ${cards.map(c=>c.name).join(", ")})`:""}\nInferred answer: ${inferred} *(from ${source})*`);
   // Judge check: the rules and rulings behind it
   const judge=[];
+  for(const tp of topics) judge.push(topicBlock(tp));
   if(cards.length) judge.push(await cardBlock(cards,ws));
   const rules=await rulesBlock(ws.length?rest:q,4,q); if(rules) judge.push(rules);
   parts.push("### Judge check\n"+(judge.join("\n\n")||"No rule or ruling in the saved data matched this question."));
   // Coach check: practical notes from the decks, combos and further reading
   const coach=[];
-  const d=DATA.decks.find(x=>q.toLowerCase().includes(x.name.toLowerCase()))||DATA.decks.find(x=>cards.some(c=>x.cards.some(k=>k.name===c.name)));
-  if(d&&ws.length){ const hit=d.sections.filter(s=>!/Summary|Power level/.test(s.title)).map(s=>({s,sc:score(plain(s.html),ws,"")})).filter(o=>o.sc>0).sort((a,b)=>b.sc-a.sc)[0];
-    if(hit) coach.push(`From your ${d.name} notes (${hit.s.title.replace(/^\d+\.\s*/,"")}): ${clip(plain(hit.s.html),500)}`); }
+  const shown=notes.filter(n=>n!==note).slice(0,2);
+  if(shown.length) coach.push(shown.map(n=>`- From your ${n.deck} notes (${n.section}): ${clip(n.text,320)}`).join("\n"));
+  for(const tp of topics) if(tp.coach) coach.push(`- Tip (${tp.title}): ${tp.coach}`);
   if(cards.length>=2){ try{ const cb=await findCombos(cards.slice(0,3).map(c=>c.name),2); if(cb.length) coach.push("Known combos with these cards: "+cb.map(x=>`${x.cards.join(" + ")} (${x.results.slice(0,2).join(", ")})`).join("; ")); }catch(e){} }
   const ex=await extrasBlock(ws.length?rest:q,cards); if(ex) coach.push(ex);
   parts.push("### Coach check\n"+(coach.join("\n\n")||"No saved strategy notes match this question."));
   // Final call with an evidence-based confidence
   let conf=25; const why=[];
-  const usedRuling=bestRuling&&bestRuling.cov>=0.5, cov=usedRuling?bestRuling.cov:(lead?coverage(leadSentence,ws):0);
+  const usedRuling=!note&&!topics.length&&bestRuling&&bestRuling.cov>=0.5, cov=(note||topics.length)?0:(usedRuling?bestRuling.cov:(lead?coverage(leadSentence,ws):0));
+  if(note){ conf=82; why.push(`+ Your saved ${note.deck} analysis covers these exact cards (${cards.map(c=>c.name).join(", ")}).`);
+    why.push("+ That analysis was checked against the cards' official text and rulings when it was written.");
+    if(topics.length) why.push(`+ The rules index agrees on the general rule (${topics[0].title}).`), conf+=5;
+    why.push("− It's a summary of the interaction; read the Judge check for the exact rules.");
+  }
+  else if(topics.length){ conf=topics[0].conf-(topics.length>1?3:0); why.push(`+ Matches a hand-checked rules topic (${topics[0].title}), written from CR ${topics[0].rules.join(", ")}.`);
+    if(topics.length>1) why.push(`− It also touches another topic (${topics[1].title}); check both answers.`);
+    if(cards.length) why.push(`+ ${cards.length} card${cards.length>1?"s":""} recognized; check their text and rulings below for anything that changes the usual rule.`);
+    why.push("− The index gives the usual rule; a card's own text can override it.");
+  }
   conf+=Math.round(cov*45);
-  if(usedRuling){ conf+=10; why.push(`+ An official ruling on ${bestRuling.card} covers ${Math.round(cov*100)}% of the question's key words.`); }
+  if(note||topics.length){}
+  else if(usedRuling){ conf+=10; why.push(`+ An official ruling on ${bestRuling.card} covers ${Math.round(cov*100)}% of the question's key words.`); }
   else if(lead) why.push(`${cov>=0.5?"+":"−"} The best-matching rule sentence (CR ${lead.n}) covers ${Math.round(cov*100)}% of the question's key words.`);
-  if(kw.length&&!usedRuling&&kw.includes(lead)){ conf+=10; why.push(`+ It's the question's own keyword rule (${lead.n.replace(/[a-z]$/,"")}).`); }
-  if(cards.length){ conf+=Math.min(10,cards.length*5); why.push(`+ ${cards.length} card${cards.length>1?"s":""} recognized, with official text.`); }
-  else if(/[A-Z][a-z]+ [A-Z][a-z]+/.test(q.slice(1))){ conf-=10; why.push("− No card names were recognized; use exact names if the question is about specific cards."); }
-  if(!lead&&!bestRuling){ conf=Math.min(conf,25); why.push("− Nothing in the saved data answers it directly."); }
-  why.push("− Lookup mode matches text and can't combine several rules the way the Judge can when signed in.");
-  conf=Math.max(10,Math.min(90,conf));
+  if(!note&&!topics.length&&kw.length&&!usedRuling&&kw.includes(lead)){ conf+=10; why.push(`+ It's the question's own keyword rule (${lead.n.replace(/[a-z]$/,"")}).`); }
+  if(!topics.length&&!note){
+    if(cards.length){ conf+=Math.min(10,cards.length*5); why.push(`+ ${cards.length} card${cards.length>1?"s":""} recognized, with official text.`); }
+    else if(/[A-Z][a-z]+ [A-Z][a-z]+/.test(q.slice(1))){ conf-=10; why.push("− No card names were recognized; use exact names if the question is about specific cards."); }
+    if(!lead&&!bestRuling){ conf=Math.min(conf,25); why.push("− Nothing in the saved data answers it directly."); }
+    why.push("− No hand-checked topic matched, so this is a text match that can't combine several rules.");
+    conf=Math.min(80,conf);
+  }
+  conf=Math.max(10,Math.min(95,conf));
   parts.push(`### Final call (Judge)\n${inferred}\n\n**Confidence: ${conf}%** (how well the saved data matches your question)\n${why.map(w=>"- "+w).join("\n")}`);
   parts.push(LOOKUP_NOTE);
   return parts.join("\n\n");
@@ -1476,6 +1568,8 @@ async function lookupMove(e,g){
   const rest=stripNames(e.text,cards), ws=words(rest);
   const parts=[];
   parts.push(cards.length?"### Cards in this move\n"+await cardBlock(cards,ws):"### Cards in this move\nNo card names recognized. Use exact card names so the Judge can look them up.");
+  const mt=matchTopics(e.text+" "+cards.map(c=>c.text).join(" "),2);
+  if(mt.length) parts.push("### Rules index\n"+mt.map(topicBlock).join("\n\n"));
   const fromMove=keywordRules(e.text), fromCards=keywordRules(cards.map(c=>c.text).join(" ")).filter(r=>r.n.startsWith("702"));
   const kwRules=[...fromMove,...fromCards.filter(r=>!fromMove.some(m=>m.n===r.n))], seen=new Set(kwRules.map(r=>r.n));
   const moveRules=ws.length?searchRules(rest,3).filter(r=>!seen.has(r.n)):[];
@@ -1573,7 +1667,7 @@ function gameEl(){
         <div class="field"><label class="label" for="g-life">Starting life</label><input type="number" id="g-life" value="40" min="1"></div></div>
       <div id="g-opps" class="setup"></div>
       <datalist id="g-decklist">${DATA.decks.map(d=>`<option value="${esc(d.name)} (${esc(d.commander)})">`).join("")}</datalist>
-      <p class="note">Turn order is you first, then opponents in the order listed. Opponents' decks are optional. Start typing to pick one of 197 pre-built Commander decks, and the Judge will know its full list.</p>
+      <p class="note">Turn order is you first, then opponents in the order listed. Opponents' decks are optional. Start typing to pick one of ${STATS.precons} pre-built Commander decks, and the Judge will know its full list.</p>
       <div><button class="btn" type="submit">Start game</button></div>
     </form>`;
     queueMicrotask(()=>{

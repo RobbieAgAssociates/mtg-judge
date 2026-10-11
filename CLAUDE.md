@@ -17,6 +17,13 @@ There is no package manager, bundler or test suite. Everything is plain HTML/CSS
 # Rebuild index.html (public site) and ../mtg-judge.html (claude.ai page) from build/
 python3 build/make_site.py
 
+# Refresh the data from Scryfall, Wizards, MTGJSON, Commander Spellbook, EDHREC and the judges' blog
+# (all steps, or name some: cards rulings cr precons combos edhrec tips); then rebuild
+python3 build/refresh_data.py && python3 build/make_site.py
+
+# Export grep-friendly copies of the data for the mtg-judge Claude Code agent
+python3 build/export_agent_data.py ~/.claude/agents/mtg-judge-data
+
 # Serve locally (the page fetches data files, so file:// won't work)
 python3 -m http.server 8766 --bind 127.0.0.1
 
@@ -40,6 +47,12 @@ A rebuild with no source changes must leave `git status` clean; use that to conf
 **Layered card previews.** `linkCards(root)` wraps known deck card names (plus unambiguous short legend names via `ALIAS`) in `.cardref` buttons. Hovering or tapping any `[data-card]` shows `#peek` with the card image (deck cards) or text (others, via `lookupCard`). Call `linkCards` on any newly rendered notes or answers.
 
 **Per-viewer state** lives in `localStorage` (`mtgjudge.chat`, `mtgjudge.game`, `mtgjudge.ideas`), always wrapped in try/catch.
+
+**Rules index.** `build/data/topics.json` holds hand-checked answers to common questions (deathtouch + trample, responding, the stack, commander tax/damage/zone, copies, triggers…), each with the CR rules it comes from and a Coach tip. `matchTopics()` uses it in lookup answers, game checks, the Rules page's "Quick answers", and Claude's `rules_index` tool. `refresh_data.py cr` reports any topic rule number that disappears from a new CR.
+
+**Answer format.** Chat answers are: restated question with an inferred answer, Judge check, Coach check, Final call (Judge) with a confidence percentage and reasons. Lookup mode picks the inferred answer from (in order) a deck note naming every card asked about, a rules-index topic, an official ruling, or the best-matching rule sentence.
+
+**Automation.** `.github/workflows/refresh-data.yml` runs the refresh monthly (and on demand), commits changes and asks Pages to rebuild. Counts and dates on the page come from the data at build time (`__STATS__` in `build.py`), not from the template.
 
 ## Data and sources
 
