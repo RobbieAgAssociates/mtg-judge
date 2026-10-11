@@ -275,13 +275,14 @@ const DATA = __DATA__;
 const CR = __CR__;
 const SYM = __SYMBOLS__;
 const ART = __ART__;
+const PRECON = __PRECONMETA__;
 const DECKMETA = __DECKMETA__;
 const EDHREC = __EDHREC__;
 const TYPES=["Creature","Planeswalker","Instant","Sorcery","Artifact","Enchantment","Land"];
 const RULE = new Map(CR.rules.map((r,i)=>[r.n,i]));
 const SECTION = new Map(CR.sections.map(s=>[s.n,s]));
 let state={view:"home",types:new Set(),q:"",ruleSection:null,focusRule:null};
-const VIEWS=()=>[["home","Home",""],["ask","Ask the Judge",""],["game","Game Tracker",""],["ideas","Deck Ideas",""],["comparison","Decks",""],"sep",["all","Search",""],["lookup","Cards",""],["rules","Rules",""],["sources","Sources",""]];
+const VIEWS=()=>[["home","Home",""],["ask","Ask the Judge",""],["game","Game Tracker",""],["ideas","Deck Ideas",""],["comparison","Decks",""],["precons","Precons",""],"sep",["all","Search",""],["lookup","Cards",""],["rules","Rules",""],["sources","Sources",""]];
 
 function readHash(){
   try{
@@ -289,7 +290,7 @@ function readHash(){
     if(!h) return;
     const m=h.match(/^rule-(\d{3}(?:\.\d+[a-z]?)?)$/);
     if(m){ openRule(m[1],false); return; }
-    if(VIEWS().some(v=>v!=="sep"&&v[0]===h)||DATA.decks.some(d=>d.id===h)) state.view=h;
+    if(VIEWS().some(v=>v!=="sep"&&v[0]===h)||DATA.decks.some(d=>d.id===h)||(h.startsWith("pc-")&&PRECON.decks.some(p=>"pc-"+p.id===h))) state.view=h;
   }catch(e){}
 }
 function setHash(h){ try{ history.replaceState(null,"",h?"#"+h:location.pathname); }catch(e){} }
@@ -592,7 +593,7 @@ function go(view,opts={}){
 function renderTabs(){
   const t=document.getElementById("tabs");
   const deckOpen=DATA.decks.some(d=>d.id===state.view);
-  t.innerHTML=VIEWS().map(v=>v==="sep"?'<span class="sep" aria-hidden="true"></span>':`<button data-view="${v[0]}"${state.view===v[0]||(v[0]==="comparison"&&deckOpen)?' aria-current="page"':""}>${esc(v[1])}</button>`).join("");
+  t.innerHTML=VIEWS().map(v=>v==="sep"?'<span class="sep" aria-hidden="true"></span>':`<button data-view="${v[0]}"${state.view===v[0]||(v[0]==="comparison"&&deckOpen)||(v[0]==="precons"&&state.view.startsWith("pc-"))?' aria-current="page"':""}>${esc(v[1])}</button>`).join("");
   t.onclick=e=>{ const b=e.target.closest("button[data-view]"); if(b) go(b.dataset.view); };
   document.getElementById("brand").onclick=()=>go("home");
   const isDeck=DATA.decks.some(d=>d.id===state.view);
@@ -699,7 +700,7 @@ function homeEl(){
       <button class="tile" data-go="lookup"><span class="num">${COUNTS.cards.toLocaleString()}</span><span class="what">Cards with official text, legality and price</span></button>
       <button class="tile" data-go="lookup"><span class="num">${COUNTS.rulings.toLocaleString()}</span><span class="what">Official card rulings</span></button>
       <button class="tile" data-go="ideas"><span class="num">${COUNTS.combos.toLocaleString()}</span><span class="what">Commander combos from Commander Spellbook</span></button>
-      <button class="tile" data-go="game"><span class="num">${COUNTS.precons}</span><span class="what">Pre-built Commander decklists for opponents</span></button>
+      <button class="tile" data-go="precons"><span class="num">${COUNTS.precons}</span><span class="what">Pre-built Commander decks to browse</span></button>
     </div>
   </section>
   <section>
@@ -823,17 +824,109 @@ function rulesPage(main,ts){
   main.appendChild(art);
 }
 
+/* ---------- Pre-built Commander decks (all 197 official precons) ---------- */
+const PCF={q:"",colors:new Set(),year:"all"};
+const pcById=id=>PRECON.decks.find(p=>p.id===id);
+function pcArt(p){ return PRECON.art[p.lead]||null; }
+function manaValue(cost){ let n=0; const front=String(cost||"").split(" // ")[0]; for(const m of front.matchAll(/\{([^}]+)\}/g)){ const s=m[1]; if(/^\d+$/.test(s)) n+=+s; else if(s==="X"||s==="Y"||s==="Z") n+=0; else if(/^2\//.test(s)) n+=2; else n+=1; } return n; }
+function pcTile(p){
+  const a=pcArt(p);
+  return `<article class="dtile">
+    <div class="art" style="${a?`background-image:url('${a.img}')`:""}" role="img" aria-label="${esc(p.lead)}${a?" art by "+esc(a.artist):""}"></div>
+    <div class="body">
+      <div><h3>${esc(p.name)}</h3><div class="cmd">${colorDots(p.ci)} <button type="button" class="cardref" data-card="${esc(p.lead)}">${esc(p.commander.join(" & "))}</button></div></div>
+      <div class="chips"><span class="badge">${p.setsym?`<img class="setsym" src="${p.setsym}" alt="">`:""}${esc(p.set)}</span><span class="badge">${p.date.slice(0,4)}</span></div>
+      <div class="actions"><button class="btn" data-go="pc-${p.id}">Open deck</button></div>
+    </div></article>`;
+}
+function preconsEl(){
+  const art=document.createElement("article"); art.className="deck";
+  const years=[...new Set(PRECON.decks.map(p=>p.date.slice(0,4)))].sort().reverse();
+  art.innerHTML=`<div class="sec setup" style="max-width:none">
+      <div class="prow" style="grid-template-columns:2fr 1fr"><div class="field"><label class="label" for="pc-q">Deck or commander</label><input type="search" id="pc-q" value="${esc(PCF.q)}" placeholder="e.g. Atraxa, dragons, Avengers"></div>
+        <div class="field"><label class="label" for="pc-year">Released</label><select id="pc-year"><option value="all">Any year</option>${years.map(y=>`<option${PCF.year===y?" selected":""}>${y}</option>`).join("")}</select></div></div>
+      <div class="field"><span class="label">Colors (deck includes all you pick)</span><div class="chips" id="pc-colors">${"WUBRGC".split("").map(c=>`<button type="button" class="chip" data-col="${c}" aria-pressed="${PCF.colors.has(c)}">${symImg(c,COLORNAME[c])||c} ${COLORNAME[c]}</button>`).join("")}</div></div>
+      <p class="count" id="pc-count"></p>
+    </div>
+    <div class="decks" id="pc-grid"></div>`;
+  const draw=()=>{
+    const q=PCF.q.toLowerCase().trim();
+    const list=PRECON.decks.filter(p=>(!q||(p.name+" "+p.commander.join(" ")+" "+p.set).toLowerCase().includes(q))
+      &&(PCF.year==="all"||p.date.startsWith(PCF.year))
+      &&[...PCF.colors].every(c=>c==="C"?p.ci==="":p.ci.includes(c)));
+    art.querySelector("#pc-grid").innerHTML=list.map(pcTile).join("")||`<p class="empty">No pre-built decks match.</p>`;
+    art.querySelector("#pc-count").textContent=`${list.length} of ${PRECON.decks.length} decks`;
+  };
+  queueMicrotask(()=>{
+    const qi=art.querySelector("#pc-q"); if(!qi) return;
+    let tm; qi.oninput=()=>{ clearTimeout(tm); tm=setTimeout(()=>{ PCF.q=qi.value; draw(); },150); };
+    art.querySelector("#pc-year").onchange=e=>{ PCF.year=e.target.value; draw(); };
+    art.querySelector("#pc-colors").onclick=e=>{ const b=e.target.closest("[data-col]"); if(!b) return; const c=b.dataset.col; PCF.colors.has(c)?PCF.colors.delete(c):PCF.colors.add(c); b.setAttribute("aria-pressed",PCF.colors.has(c)); draw(); };
+  });
+  draw(); wireGo(art);
+  return art;
+}
+function preconPageEl(id){
+  const p=pcById(id), art=document.createElement("article"); art.className="deck";
+  if(!p){ art.innerHTML=`<p class="empty">That deck wasn't found. <button class="linklike" data-go="precons">See all pre-built decks</button></p>`; return wireGo(art); }
+  const a=pcArt(p);
+  art.innerHTML=`
+  <nav class="chips"><button class="chip" data-go="precons">← All pre-built decks</button></nav>
+  <section class="dhero" style="${a?`background-image:url('${a.img}')`:""}">
+    <div class="copy">
+      <span class="label" style="color:#e7c477">${p.setsym?`<img class="setsym" src="${p.setsym}" alt="" style="filter:invert(.85) sepia(.6) saturate(3) hue-rotate(5deg)">`:""}${esc(p.set)} · Released ${esc(p.date)}</span>
+      <h1>${esc(p.name)}</h1>
+      <p>${colorDots(p.ci)} ${p.commander.map(c=>`<button type="button" class="cardref" style="color:#f3efe6" data-card="${esc(c)}">${esc(c)}</button>`).join(" & ")}</p>
+      <p>An official pre-built Commander deck. Use it as an opponent's deck in the Game Tracker and the Judge will know every card in it.</p>
+      <div class="chips"><button class="btn light" data-pcask="${esc(p.name)}">Ask about this deck</button><button class="btn glass" data-go="game">Track a game</button></div>
+    </div>
+    ${a?`<span class="credit">${esc(p.lead)} · Art: ${esc(a.artist)}</span>`:""}
+  </section>
+  <div id="pc-body"><p class="status">Loading the decklist and card text…</p></div>`;
+  art.addEventListener("click",e=>{ const b=e.target.closest("[data-pcask]"); if(b){ chat.prefill=`In the pre-built deck ${b.dataset.pcask}, `; go("ask"); } });
+  wireGo(art);
+  (async()=>{
+    try{
+      await loadCards(); const pre=await findPrecon(p.name);
+      const rows=(pre?pre.cards:[]).map(c=>Array.isArray(c)?{n:c[0],name:c[1]}:{n:1,name:c});
+      const cards=rows.map(r=>{ const c=CARDDB.byName.get(r.name.toLowerCase())||CARDDB.byName.get(r.name.split(" // ")[0].toLowerCase()); return c?{...c,count:r.n,commander:p.commander.some(x=>x===r.name||x.split(" // ")[0]===r.name.split(" // ")[0]),mv:manaValue(c.cost),group:["Creature","Planeswalker","Instant","Sorcery","Artifact","Enchantment","Battle","Land"].find(t=>c.type.split("//")[0].includes(t))||"Other"}:null; }).filter(Boolean);
+      const body=art.querySelector("#pc-body"); if(!body) return;
+      const types={}; cards.forEach(c=>{ if(!c.commander) types[c.group]=(types[c.group]||0)+c.count; });
+      const total=cards.reduce((s,c)=>s+c.count,0);
+      body.innerHTML=`<div class="statgrid">
+          <section class="sec curve"><h3>Mana curve</h3>${curveSVG({cards})}</section>
+          <section class="sec"><h3>Card types</h3><div class="bars">${Object.entries(types).sort((x,y)=>y[1]-x[1]).map(([k,v])=>`<div class="bar"><span>${esc(k)}</span><span class="track"><span class="fill" style="width:${v/45*100}%"></span></span><span class="v">${v}</span></div>`).join("")}</div><p class="note">${total} cards found in the card database.</p></section>
+        </div>
+        <section class="sec" id="pc-combos"><h3>Combos</h3><p class="status">Checking Commander Spellbook…</p></section>
+        <section class="sec"><div class="listhead"><h3>Decklist</h3><span class="count">${total} cards</span></div><div class="groups" id="pc-list"></div></section>`;
+      const list=body.querySelector("#pc-list");
+      for(const g of ["Commander","Creature","Planeswalker","Instant","Sorcery","Artifact","Enchantment","Battle","Land","Other"]){
+        const xs=cards.filter(c=>g==="Commander"?c.commander:(!c.commander&&c.group===g)).sort((x,y)=>x.name.localeCompare(y.name)); if(!xs.length) continue;
+        const gd=document.createElement("div"); gd.className="group"; gd.innerHTML=`<h4>${g} · ${xs.reduce((s,c)=>s+c.count,0)}</h4>`;
+        xs.forEach(c=>{ const el=cardDetails(c,[],false); el.querySelector(".qty").textContent=c.count; gd.appendChild(el); }); list.appendChild(gd);
+      }
+      try{ const cb=await combosInDeck(p.name,6); const li=x=>`<li><strong>${x.cards.map(esc).join(" + ")}</strong>${x.missing_card?` <span class="badge">add ${esc(x.missing_card)}</span>`:""}<br><span class="ctype">${x.results.map(esc).join(", ")}</span></li>`;
+        const box=body.querySelector("#pc-combos"); if(box) box.innerHTML=`<h3>Combos</h3><h4 class="label">In the deck</h4>${cb.in_deck.length?`<ul>${cb.in_deck.map(li).join("")}</ul>`:'<p class="note">None found.</p>'}<h4 class="label">One card away</h4>${cb.one_card_away.length?`<ul>${cb.one_card_away.map(li).join("")}</ul>`:'<p class="note">None found.</p>'}<p class="note">From Commander Spellbook. Combos can push a deck above Bracket 2.</p>`;
+      }catch(e){ const box=body.querySelector("#pc-combos"); if(box) box.innerHTML=`<h3>Combos</h3><p class="empty">The combo database couldn't be loaded.</p>`; }
+    }catch(e){ const body=art.querySelector("#pc-body"); if(body) body.innerHTML=`<p class="empty">${esc(CARDDB.error||"The card database couldn't be loaded.")}</p>`; }
+  })();
+  return art;
+}
+
 /* ---------- page banners ---------- */
 const BANNERS={ask:["Ask the Judge","Plain-English answers from the rules, every card's text and rulings, and your decks."],
   game:["Game Tracker","Log each move. The Judge checks it against the rules and every card involved."],
   ideas:["Deck Ideas","Upgrades, combos, budget swaps and game plans for one deck at a time."],
   comparison:["Your Decks","Four Commander decks, side by side."],
+  precons:["Pre-built Decks","All 197 official Commander precons, from 2011 to now. Open one for its decklist, card text, curve and combos."],
   all:["Search","Cards, notes and rules across all four decks."],
   lookup:["Card Lookup","Official text, legality, prices and rulings for every Magic card."],
   rules:["Comprehensive Rules","The full official rules, searchable and linked."],
   sources:["Sources","Everything the Judge answers from."]};
 function bannerEl(view){
-  const b=BANNERS[view], card=ART.banner[view], a=card&&ART.art[card]; if(!b||!a) return null;
+  let b=BANNERS[view], card=ART.banner[view], a=card&&ART.art[card];
+  if(view==="precons"){ const p=PRECON.decks[0]; card=p.lead; a=PRECON.art[p.lead]; }
+  if(!b||!a) return null;
   const el=document.createElement("section"); el.className="pagebanner"; el.style.backgroundImage=`url('${a.img}')`;
   el.innerHTML=`<div><h1>${esc(b[0])}</h1><p>${esc(b[1])}</p></div><span class="credit">${esc(card)} · Art: ${esc(a.artist)}</span>`;
   return el;
@@ -849,6 +942,8 @@ function render(){
   if(state.view==="game"){ main.appendChild(gameEl()); return; }
   if(state.view==="ideas"){ main.appendChild(ideasEl()); return; }
   if(state.view==="sources"){ main.appendChild(sourcesEl()); return; }
+  if(state.view==="precons"){ main.appendChild(preconsEl()); return; }
+  if(state.view.startsWith("pc-")){ main.appendChild(preconPageEl(state.view.slice(3))); return; }
   const ts=terms();
   if(state.view==="lookup"){ lookupPage(main,ts); return; }
   { const dk=DATA.decks.find(d=>d.id===state.view); if(dk&&!ts.length&&!state.types.size){ main.appendChild(deckPageEl(dk)); return; } }
