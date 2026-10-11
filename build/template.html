@@ -478,13 +478,18 @@ async function findCombos(names,limit=10){
   let ids=null; for(const k of ks){ const s=new Set(COMBOS.byCard.get(k)||[]); ids=ids?ids.filter(i=>s.has(i)):[...s]; }
   return (ids||[]).sort((a,b)=>a-b).slice(0,limit).map(i=>comboOut(COMBOS.list[i]));
 }
-async function deckCardSet(name){
-  const d=findDeck(name); if(d) return {name:d.name,ci:d.colors,set:new Set(d.cards.map(c=>c.name.toLowerCase()))};
-  const p=await findPrecon(name); if(p) { const ci=(await lookupCard(p.commander[0]||""))[0]?.ci||""; return {name:p.name,ci,set:new Set(p.cards.map(c=>(Array.isArray(c)?c[1]:c).toLowerCase()))}; }
-  return null;
+/* the saved decklist for one entry of PRECON.decks (names repeat across reprints, so match the set code too) */
+async function preconList(meta){ const list=await loadPrecons(); return list.find(x=>x.name===meta.name&&x.code===meta.code)||null; }
+function cardKeys(name){ const l=String(name).toLowerCase(); const front=l.split(" // ")[0]; return front===l?[l]:[l,front]; }
+async function deckCardSet(name,pre){
+  const d=pre?null:findDeck(name); if(d) return {name:d.name,ci:d.colors,set:new Set(d.cards.flatMap(c=>cardKeys(c.name)))};
+  const p=pre||await findPrecon(name); if(!p) return null;
+  const meta=PRECON.decks.find(m=>m.name===p.name&&m.code===p.code);
+  let ci=meta?meta.ci:""; if(!meta){ for(const c of p.commander){ const hit=(await lookupCard(c))[0]; if(hit) ci+=hit.ci; } }
+  return {name:p.name,ci,set:new Set(p.cards.flatMap(c=>cardKeys(Array.isArray(c)?c[1]:c)))};
 }
-async function combosInDeck(name,limit=10){
-  await loadCombos(); const d=await deckCardSet(name); if(!d) throw new Error("Unknown deck: "+name);
+async function combosInDeck(name,limit=10,pre){
+  await loadCombos(); const d=await deckCardSet(name,pre); if(!d) throw new Error("Unknown deck: "+name);
   const seen=new Set(), inc=[], near=[];
   for(const k of d.set){ for(const i of COMBOS.byCard.get(k)||[]){ if(seen.has(i)) continue; seen.add(i);
     const r=COMBOS.list[i]; const miss=r[0].filter(n=>!d.set.has(n.toLowerCase()));
@@ -496,7 +501,14 @@ let PRECONS=null;
 async function loadPrecons(){ if(!PRECONS) PRECONS=await loadData("precons.json.gz"); return PRECONS; }
 async function findPrecon(q){
   const list=await loadPrecons(); const n=String(q).toLowerCase().replace(/\s*\(.*\)\s*$/,"").trim(); if(!n) return null;
-  return list.find(p=>p.name.toLowerCase()===n)||list.find(p=>p.commander.some(c=>c.toLowerCase()===n))||list.find(p=>p.commander.some(c=>c.toLowerCase().startsWith(n)))||list.find(p=>p.name.toLowerCase().includes(n))||null;
+  const exact=list.find(p=>p.name.toLowerCase()===n)||list.find(p=>p.commander.some(c=>c.toLowerCase()===n||c.toLowerCase().split(" // ")[0]===n));
+  if(exact) return exact;
+  if(n.length<4) return null;
+  // looser matches only count when exactly one deck fits, so a vague name never picks an unrelated deck
+  const byCmd=list.filter(p=>p.commander.some(c=>c.toLowerCase().startsWith(n)));
+  if(new Set(byCmd.map(p=>p.name)).size===1) return byCmd[0];
+  const byName=list.filter(p=>p.name.toLowerCase().includes(n));
+  return new Set(byName.map(p=>p.name)).size===1?byName[0]:null;
 }
 const preconCards=p=>p.cards.map(c=>Array.isArray(c)?`${c[0]} ${c[1]}`:c);
 async function preconsWithCard(name){ const list=await loadPrecons(); const n=String(name).toLowerCase(); return list.filter(p=>p.cards.some(c=>(Array.isArray(c)?c[1]:c).toLowerCase()===n)).map(p=>`${p.name} (${p.commander.join(" & ")}, ${p.date.slice(0,4)})`); }
@@ -598,8 +610,9 @@ function extrasEl(d){
 
 /* ---------- site: navigation, card previews, home dashboard, deck pages ---------- */
 function go(view,opts={}){
+  const changed=view!==state.view;
   state.view=view; state.focusRule=null; if(view!=="rules") state.ruleSection=null;
-  if(opts.q!=null){ state.q=opts.q; const q=document.getElementById("q"); if(q) q.value=opts.q; }
+  if(opts.q!=null||changed){ state.q=opts.q!=null?opts.q:""; if(changed&&opts.q==null) state.types.clear(); const q=document.getElementById("q"); if(q) q.value=state.q; }
   setHash(view==="home"?"":view); renderTabs(); render(); window.scrollTo({top:0});
 }
 function renderTabs(){
@@ -900,7 +913,7 @@ function preconPageEl(id){
   wireGo(art);
   (async()=>{
     try{
-      await loadCards(); const pre=await findPrecon(p.name);
+      await loadCards(); const pre=await preconList(p);
       const rows=(pre?pre.cards:[]).map(c=>Array.isArray(c)?{n:c[0],name:c[1]}:{n:1,name:c});
       const cards=rows.map(r=>{ const c=CARDDB.byName.get(r.name.toLowerCase())||CARDDB.byName.get(r.name.split(" // ")[0].toLowerCase()); return c?{...c,count:r.n,commander:p.commander.some(x=>x===r.name||x.split(" // ")[0]===r.name.split(" // ")[0]),mv:manaValue(c.cost),group:["Creature","Planeswalker","Instant","Sorcery","Artifact","Enchantment","Battle","Land"].find(t=>c.type.split("//")[0].includes(t))||"Other"}:null; }).filter(Boolean);
       const body=art.querySelector("#pc-body"); if(!body) return;
@@ -918,7 +931,7 @@ function preconPageEl(id){
         const gd=document.createElement("div"); gd.className="group"; gd.innerHTML=`<h4>${g} · ${xs.reduce((s,c)=>s+c.count,0)}</h4>`;
         xs.forEach(c=>{ const el=cardDetails(c,[],false); el.querySelector(".qty").textContent=c.count; gd.appendChild(el); }); list.appendChild(gd);
       }
-      try{ const cb=await combosInDeck(p.name,6); const li=x=>`<li><strong>${x.cards.map(esc).join(" + ")}</strong>${x.missing_card?` <span class="badge">add ${esc(x.missing_card)}</span>`:""}<br><span class="ctype">${x.results.map(esc).join(", ")}</span></li>`;
+      try{ const cb=await combosInDeck(p.name,6,pre); const li=x=>`<li><strong>${x.cards.map(esc).join(" + ")}</strong>${x.missing_card?` <span class="badge">add ${esc(x.missing_card)}</span>`:""}<br><span class="ctype">${x.results.map(esc).join(", ")}</span></li>`;
         const box=body.querySelector("#pc-combos"); if(box) box.innerHTML=`<h3>Combos</h3><h4 class="label">In the deck</h4>${cb.in_deck.length?`<ul>${cb.in_deck.map(li).join("")}</ul>`:'<p class="note">None found.</p>'}<h4 class="label">One card away</h4>${cb.one_card_away.length?`<ul>${cb.one_card_away.map(li).join("")}</ul>`:'<p class="note">None found.</p>'}<p class="note">From Commander Spellbook. Combos can push a deck above Bracket 2.</p>`;
       }catch(e){ const box=body.querySelector("#pc-combos"); if(box) box.innerHTML=`<h3>Combos</h3><p class="empty">The combo database couldn't be loaded.</p>`; }
     }catch(e){ const body=art.querySelector("#pc-body"); if(body) body.innerHTML=`<p class="empty">${esc(CARDDB.error||"The card database couldn't be loaded.")}</p>`; }
@@ -937,7 +950,10 @@ document.getElementById("askbar").addEventListener("submit",e=>{
   e.preventDefault(); const i=document.getElementById("askbar-q"); let q=i.value.trim(); if(!q) { i.focus(); return; }
   const c=askContext(); if(c&&!q.toLowerCase().includes(c.name.toLowerCase())) q=`About ${c.label}: ${q}`;
   i.value=""; go("ask");
-  setTimeout(()=>{ const a=document.getElementById("ask"); if(a&&!chat.busy){ a.value=q; send(); } },0);
+  setTimeout(()=>{ const a=document.getElementById("ask"); if(!a) return;
+    a.value=q;
+    if(chat.busy){ setStatus("The Judge is still answering. Your question is ready below; press Ask when it's done."); a.focus(); }
+    else send(); },0);
 });
 
 /* ---------- page banners ---------- */
