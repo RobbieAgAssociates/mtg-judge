@@ -11,16 +11,16 @@
   --accent:#5cc8bf; --accent-ink:#06211e; --brass:#d8ad55; --mark:#6b5512; --mark-ink:#fff3cf; --you:#17302e; --shadow:0 18px 40px rgba(0,0,0,.45);
   --pip-w:#efe6c2; --pip-u:#3b86c8; --pip-b:#5d5266; --pip-r:#d2492e; --pip-g:#2f9255; --pip-c:#aaa397; --pip-ink:#16191d;
   --display:"Alegreya SC","Palatino Linotype",Georgia,serif; --body:"Alegreya Sans","Segoe UI",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
-  --r:12px; color-scheme:dark;
+  --r:12px; --set-filter:invert(.92); color-scheme:dark;
 }
 @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
   --bg:#eef0ec; --bg-2:#e6e9e4; --surface:#ffffff; --surface-2:#f7f8f5; --sunk:#f2f4f0; --ink:#1a1e23; --muted:#56606a; --line:#d6dbd5;
   --accent:#0d6e6a; --accent-ink:#ffffff; --brass:#8a6416; --mark:#ffe58a; --mark-ink:#1a1e23; --you:#e1efed; --shadow:0 14px 30px rgba(20,30,40,.16);
-  --pip-b:#3a3440; --pip-c:#bdb7ae; color-scheme:light }}
+  --pip-b:#3a3440; --pip-c:#bdb7ae; --set-filter:none; color-scheme:light }}
 :root[data-theme="light"]{
   --bg:#eef0ec; --bg-2:#e6e9e4; --surface:#ffffff; --surface-2:#f7f8f5; --sunk:#f2f4f0; --ink:#1a1e23; --muted:#56606a; --line:#d6dbd5;
   --accent:#0d6e6a; --accent-ink:#ffffff; --brass:#8a6416; --mark:#ffe58a; --mark-ink:#1a1e23; --you:#e1efed; --shadow:0 14px 30px rgba(20,30,40,.16);
-  --pip-b:#3a3440; --pip-c:#bdb7ae; color-scheme:light }
+  --pip-b:#3a3440; --pip-c:#bdb7ae; --set-filter:none; color-scheme:light }
 *{box-sizing:border-box}
 html{scroll-padding-top:120px}
 body{background:var(--bg);color:var(--ink);font:17px/1.55 var(--body);margin:0}
@@ -97,7 +97,26 @@ details.card summary:hover .cname{color:var(--accent)}
 .ctext{white-space:pre-line}
 .pip{display:inline-grid;place-items:center;width:1.25em;height:1.25em;border-radius:50%;font:500 .62em/1 var(--mono);vertical-align:.12em;margin:0 1px;background:var(--pip-c);color:var(--pip-ink);box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)}
 .pip.W{background:var(--pip-w)} .pip.U{background:var(--pip-u);color:#fff} .pip.B{background:var(--pip-b);color:#fff} .pip.R{background:var(--pip-r);color:#fff} .pip.G{background:var(--pip-g);color:#fff}
-.colors{display:inline-flex;gap:2px}
+.colors{display:inline-flex;gap:2px;vertical-align:middle}
+img.ms{width:1.08em;height:1.08em;vertical-align:-.17em;margin:0 1px;box-shadow:none;background:none;border-radius:50%;display:inline-block}
+.setsym{width:1.15em;height:1.15em;vertical-align:-.2em;margin-right:4px;filter:var(--set-filter)}
+/* page banners: card art behind each page title */
+.pagebanner{position:relative;border-radius:18px;overflow:hidden;min-height:180px;display:grid;align-items:end;padding:clamp(18px,3.5vw,32px);background-size:cover;background-position:center 35%;isolation:isolate;box-shadow:var(--shadow)}
+.pagebanner::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(6,9,13,.9),rgba(6,9,13,.55) 55%,rgba(6,9,13,.15))}
+.pagebanner h1{font:800 clamp(28px,4.4vw,44px)/1.05 var(--display);margin:0;color:#f3efe6}
+.pagebanner p{margin:6px 0 0;color:#d9d4c9;max-width:60ch}
+.pagebanner .credit{position:absolute;right:14px;top:10px;font:500 11px var(--mono);color:rgba(255,255,255,.6)}
+main.banner-heads > .pagebanner + article > .deckhead:first-child{display:none}
+/* art wall on the home page */
+.artwall{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.artwall button{position:relative;padding:0;border:0;border-radius:14px;overflow:hidden;cursor:pointer;aspect-ratio:4/3;background:var(--sunk);text-align:left;color:#fff;font:inherit}
+.artwall img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .35s ease}
+.artwall button:hover img{transform:scale(1.06)}
+.artwall .cap{position:absolute;inset:auto 0 0 0;padding:28px 12px 10px;background:linear-gradient(transparent,rgba(5,8,12,.88));display:grid;gap:1px}
+.artwall .cap strong{font:700 15px/1.2 var(--display)}
+.artwall .cap span{font:500 11px var(--mono);color:rgba(255,255,255,.72)}
+.player .pbanner{height:64px;margin:-12px -14px 4px;border-radius:12px 12px 0 0;background-size:cover;background-position:center 30%}
+@media (max-width:820px){ .artwall{grid-template-columns:repeat(2,minmax(0,1fr))} }
 .empty{color:var(--muted);font-style:italic;padding:8px 0}
 .note{font-size:15px;color:var(--muted);max-width:72ch}
 .status{font:500 13px var(--mono);color:var(--muted)}
@@ -254,6 +273,8 @@ select,input[type=text],input[type=number]{font:inherit;padding:8px 10px;border:
 <script>
 const DATA = __DATA__;
 const CR = __CR__;
+const SYM = __SYMBOLS__;
+const ART = __ART__;
 const DECKMETA = __DECKMETA__;
 const EDHREC = __EDHREC__;
 const TYPES=["Creature","Planeswalker","Instant","Sorcery","Artifact","Enchantment","Land"];
@@ -274,14 +295,19 @@ function readHash(){
 function setHash(h){ try{ history.replaceState(null,"",h?"#"+h:location.pathname); }catch(e){} }
 
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function symImg(sym,title){ const f=SYM[sym]; return f?`<img class="pip ms" src="${f}" alt="{${esc(sym)}}" title="${esc(title||"{"+sym+"}")}">`:null; }
 function pips(s){
   return esc(s).replace(/\{([^}]+)\}/g,(m,sym)=>{
+    const img=symImg(sym); if(img) return img;
     const cols=(sym.match(/[WUBRG]/g)||[]); const cls=cols.length===1?cols[0]:"";
     const label=sym.replace("/P","ᵖ").replace("/","");
     return `<span class="pip ${cls}" title="{${sym}}">${label.length>2?label.slice(0,2):label}</span>`;
   });
 }
-function colorDots(ci){ return `<span class="colors">${[...ci].map(c=>`<span class="pip ${c}" title="${c}">${c}</span>`).join("")}</span>`; }
+const COLORNAME={W:"White",U:"Blue",B:"Black",R:"Red",G:"Green",C:"Colorless"};
+function colorDots(ci){ return `<span class="colors">${[...(ci||"C")].map(c=>symImg(c,COLORNAME[c])||`<span class="pip ${c}" title="${c}">${c}</span>`).join("")}</span>`; }
+const SETCODE={"Aetherdrift Commander":"drc","Edge of Eternities Commander":"eoc"};
+function setSym(name){ const c=SETCODE[name]; return c?`<img class="setsym" src="img/set/${c}.svg" alt="" title="${esc(name)}">`:""; }
 function plain(html){ const d=document.createElement("div"); d.innerHTML=html; return d.textContent; }
 
 /* ---------- search helpers (shared by the page and the Judge's tools) ---------- */
@@ -618,7 +644,7 @@ document.addEventListener("mouseout",e=>{ const el=e.target.closest("[data-card]
 document.addEventListener("focusin",e=>{ const el=e.target.closest("[data-card]"); if(el) showPeek(el); });
 document.addEventListener("focusout",e=>{ if(e.target.closest("[data-card]")&&!peek.classList.contains("pinned")) hidePeek(); });
 document.addEventListener("click",e=>{
-  const el=e.target.closest(".cardref[data-card],.gallery [data-card]");
+  const el=e.target.closest(".cardref[data-card],.gallery [data-card],.artwall [data-card]");
   if(el){ e.preventDefault(); if(peekFor===el&&peek.classList.contains("pinned")){ hidePeek(); return; } showPeek(el); peek.classList.add("pinned"); return; }
   if(!e.target.closest("#peek")) hidePeek();
 });
@@ -642,7 +668,7 @@ function deckTilesHTML(){ return `<div class="decks">${DATA.decks.map(d=>{ const
         <div class="body">
           <div><h3>${esc(d.name)}</h3><div class="cmd">${colorDots(d.colors)} <button type="button" class="cardref" data-card="${esc(d.commander)}">${esc(d.commander)}</button></div></div>
           <p class="tag">${esc(x.tagline)}</p>
-          <div class="chips"><span class="badge brass">Bracket ${esc(x.bracket)}</span><span class="badge">${esc(d.set)}</span></div>
+          <div class="chips"><span class="badge brass">Bracket ${esc(x.bracket)}</span><span class="badge">${setSym(d.set)}${esc(d.set)}</span></div>
           ${barsHTML(x.stats)}
           <div class="actions"><button class="btn" data-go="${d.id}">Open deck</button><button class="btn ghost" data-ideas="${esc(d.name)}">Get ideas</button></div>
         </div>
@@ -693,6 +719,10 @@ function homeEl(){
     </div>
   </section>
   <section>
+    <div class="section-head"><div><h2 class="section">From the decks</h2><p>Art from the cards your decks lean on. Tap one to see the card.</p></div></div>
+    <div class="artwall">${DATA.decks.flatMap(d=>DECKMETA[d.name].key.slice(1,4).map(n=>[d,n])).map(([d,n])=>{ const a=ART.art[n]; return a?`<button type="button" data-card="${esc(n)}"><img src="${a.img}" alt="" loading="lazy"><span class="cap"><strong>${esc(n)}</strong><span>${esc(d.name)} · Art: ${esc(a.artist)}</span></span></button>`:""; }).join("")}</div>
+  </section>
+  <section>
     <div class="section-head"><div><h2 class="section">How they match up</h2></div></div>
     <div class="sec">${DATA.comparison[0].html}</div>
   </section>`;
@@ -711,7 +741,7 @@ function deckPageEl(d){
   <nav class="chips" aria-label="Your decks">${DATA.decks.map(o=>`<button class="chip" data-go="${o.id}" aria-pressed="${o.id===d.id}">${colorDots(o.colors)}${esc(o.name)}</button>`).join("")}</nav>
   <section class="dhero" style="background-image:url('${d.art}')">
     <div class="copy">
-      <span class="label" style="color:#e7c477">${esc(d.set)} · Bracket ${esc(x.bracket)}</span>
+      <span class="label" style="color:#e7c477"><img class="setsym" src="img/set/${SETCODE[d.set]}.svg" alt="" style="filter:invert(.85) sepia(.6) saturate(3) hue-rotate(5deg)">${esc(d.set)} · Bracket ${esc(x.bracket)}</span>
       <h1>${esc(d.name)}</h1>
       <p>${colorDots(d.colors)} ${esc(d.commander)}</p>
       <p>${esc(x.plan)}</p>
@@ -728,7 +758,8 @@ function deckPageEl(d){
   <section><div class="section-head"><div><h2 class="section">Key cards</h2><p>Tap a card for its text. These are the cards the deck leans on most.</p></div></div>
     <div class="gallery">${x.key.map(n=>{ const c=d.cards.find(k=>k.name===n); return `<button type="button" data-card="${esc(n)}"><img src="${c.img}" alt="${esc(n)}" loading="lazy"><span>${esc(n)}</span></button>`; }).join("")}</div></section>`;
   const notes=document.createElement("div"); notes.style.display="grid"; notes.style.gap="16px";
-  notes.innerHTML=`<div class="section-head" style="margin:0"><div><h2 class="section">Analysis</h2><p>Underlined card names show the card when you hover or tap.</p></div></div>`;
+  notes.innerHTML=`<div class="section-head" style="margin:0"><div><h2 class="section">Analysis</h2><p>Underlined card names show the card when you hover or tap.</p></div></div>
+    <div class="artwall">${x.key.slice(1,5).map(n=>{ const a=ART.art[n]; return a?`<button type="button" data-card="${esc(n)}"><img src="${a.img}" alt="" loading="lazy"><span class="cap"><strong>${esc(n)}</strong><span>Art: ${esc(a.artist)}</span></span></button>`:""; }).join("")}</div>`;
   for(const s of d.sections){ const el=sectionEl(s,[]); if(el) notes.appendChild(linkCards(el)); }
   art.appendChild(notes);
   art.appendChild(cardsEl(d,[]).el);
@@ -792,9 +823,26 @@ function rulesPage(main,ts){
   main.appendChild(art);
 }
 
+/* ---------- page banners ---------- */
+const BANNERS={ask:["Ask the Judge","Plain-English answers from the rules, every card's text and rulings, and your decks."],
+  game:["Game Tracker","Log each move. The Judge checks it against the rules and every card involved."],
+  ideas:["Deck Ideas","Upgrades, combos, budget swaps and game plans for one deck at a time."],
+  comparison:["Your Decks","Four Commander decks, side by side."],
+  all:["Search","Cards, notes and rules across all four decks."],
+  lookup:["Card Lookup","Official text, legality, prices and rulings for every Magic card."],
+  rules:["Comprehensive Rules","The full official rules, searchable and linked."],
+  sources:["Sources","Everything the Judge answers from."]};
+function bannerEl(view){
+  const b=BANNERS[view], card=ART.banner[view], a=card&&ART.art[card]; if(!b||!a) return null;
+  const el=document.createElement("section"); el.className="pagebanner"; el.style.backgroundImage=`url('${a.img}')`;
+  el.innerHTML=`<div><h1>${esc(b[0])}</h1><p>${esc(b[1])}</p></div><span class="credit">${esc(card)} · Art: ${esc(a.artist)}</span>`;
+  return el;
+}
+
 /* ---------- main render ---------- */
 function render(){
   const main=document.getElementById("main"); main.innerHTML="";
+  const bn=bannerEl(state.view); main.classList.toggle("banner-heads",!!bn&&["ask","game","ideas","lookup","rules","sources"].includes(state.view)); if(bn) main.appendChild(bn);
   document.getElementById("count").textContent="";
   if(state.view==="home"){ main.appendChild(homeEl()); return; }
   if(state.view==="ask"){ main.appendChild(chatEl()); return; }
@@ -1355,7 +1403,7 @@ function gameEl(){
     <div class="turnbar"><span class="big">Round ${g.round} · ${esc(p[g.active].name)}'s turn</span>
       <div class="chips"><button class="btn ghost" data-act="prev">Previous turn</button><button class="btn" data-act="next">Next turn</button></div></div>
     <div class="players">${p.map((x,i)=>`
-      <div class="player${i===g.active?" active":""}" data-p="${i}">
+      <div class="player${i===g.active?" active":""}" data-p="${i}">${(()=>{ const dk=DATA.decks.find(d=>x.deck&&x.deck.toLowerCase().startsWith(d.name.toLowerCase())); return dk?`<div class="pbanner" style="background-image:url('${dk.art}')" role="img" aria-label="${esc(dk.commander)} art"></div>`:""; })()}
         <h4>${esc(x.name)} ${i===0?'<span class="badge">You</span>':""}</h4>
         ${x.deck?`<span class="ctype">${esc(x.deck)}</span>`:""}
         <div class="counter"><span class="label">Life</span><button class="mini" data-life="-5">−5</button><button class="mini" data-life="-1">−1</button><span class="val" id="life-${i}">${x.life}</span><button class="mini" data-life="1">+1</button><button class="mini" data-life="5">+5</button></div>
