@@ -35,7 +35,12 @@
   --accent:#0d6e6a; --accent-ink:#ffffff; --brass:#8a6416; --mark:#ffe58a; --mark-ink:#1a1e23; --you:#e1efed; --shadow:0 14px 30px rgba(20,30,40,.16);
   --pip-b:#3a3440; --pip-c:#bdb7ae; --set-filter:none; color-scheme:light }
 *{box-sizing:border-box}
-html{scroll-padding-top:120px}
+html{scroll-padding-top:170px}
+.site-header .askwrap{display:block;min-height:0}
+.askbar{display:flex;gap:8px;align-items:center;padding-block:0 10px;width:100%;max-width:760px}
+.askbar svg{width:20px;height:20px;color:var(--brass);flex:none}
+.askbar input{flex:1;min-width:0;font:inherit;padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
+.askbar .btn{padding:8px 16px}
 body{background:var(--bg);color:var(--ink);font:17px/1.55 var(--body);margin:0}
 .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
 a{color:var(--accent)}
@@ -260,6 +265,13 @@ select,input[type=text],input[type=number]{font:inherit;padding:8px 10px;border:
   <div class="wrap">
     <button class="brand" id="brand" aria-label="MTG: The Judge home"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 29 16 16 30 3 16Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8v16M10 13h12M11 13l-3 6h6zM21 13l-3 6h6z" fill="none" stroke="var(--brass)" stroke-width="1.6" stroke-linejoin="round"/></svg><span>MTG: The Judge</span></button>
     <nav class="nav" id="tabs" aria-label="Main"></nav>
+  </div>
+  <div class="wrap askwrap">
+    <form class="askbar" id="askbar" role="search" aria-label="Ask the Judge">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H9l-5 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      <input type="text" id="askbar-q" placeholder="Ask the Judge a rules question…" aria-label="Ask the Judge a rules question" autocomplete="off">
+      <button class="btn" type="submit">Ask</button>
+    </form>
   </div>
 </header>
 <div class="wrap">
@@ -631,6 +643,7 @@ function renderTabs(){
   ty.innerHTML=`<span class="label" style="align-self:center">Card type</span>`+TYPES.map(x=>`<button class="chip small" data-type="${x}" aria-pressed="${state.types.has(x)}">${x}</button>`).join("");
   ty.onclick=e=>{const b=e.target.closest("button");if(!b)return;const x=b.dataset.type;state.types.has(x)?state.types.delete(x):state.types.add(x);renderTabs();render();};
   const active=t.querySelector('[aria-current="page"]'); if(active) active.scrollIntoView({block:"nearest",inline:"nearest"});
+  updateAskbar();
 }
 
 /* layered card preview: any [data-card] shows the card image (for deck cards) and its text */
@@ -939,6 +952,20 @@ function preconPageEl(id){
   })();
   return art;
 }
+
+/* ---------- the Ask bar at the top of every page ---------- */
+function askContext(){
+  const d=DATA.decks.find(x=>x.id===state.view); if(d) return {label:`my ${d.name} deck`,name:d.name};
+  if(state.view.startsWith("pc-")){ const p=pcById(state.view.slice(3)); if(p) return {label:`the pre-built deck ${p.name}`,name:p.name}; }
+  return null;
+}
+function updateAskbar(){ const i=document.getElementById("askbar-q"); if(!i) return; const c=askContext(); i.placeholder=c?`Ask the Judge about ${c.label}…`:"Ask the Judge a rules question…"; }
+document.getElementById("askbar").addEventListener("submit",e=>{
+  e.preventDefault(); const i=document.getElementById("askbar-q"); let q=i.value.trim(); if(!q) { i.focus(); return; }
+  const c=askContext(); if(c&&!q.toLowerCase().includes(c.name.toLowerCase())) q=`About ${c.label}: ${q}`;
+  i.value=""; go("ask");
+  setTimeout(()=>{ const a=document.getElementById("ask"); if(a&&!chat.busy){ a.value=q; send(); } },0);
+});
 
 /* ---------- page banners ---------- */
 const BANNERS={ask:["Ask the Judge","Plain-English answers from the rules, every card's text and rulings, and your decks."],
