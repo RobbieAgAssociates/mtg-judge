@@ -465,9 +465,16 @@ async function searchAllCards(q,limit=12){
 async function namesIn(text,max=8){
   await loadCards(); const l=String(text).toLowerCase(); const found=[];
   const isWord=ch=>!!ch&&/[a-z0-9]/.test(ch);
-  for(const nm of CARDDB.byName.keys()){
+  const raw=String(text);
+  for(const [nm,c] of CARDDB.byName){
     if(nm.length<4) continue; const i=l.indexOf(nm);
-    if(i>-1&&!isWord(l[i-1])&&!isWord(l[i+nm.length])) found.push(nm); }
+    if(i<0||isWord(l[i-1])||isWord(l[i+nm.length])) continue;
+    const proper=nm===c.lname?c.name:c.name.split(" // ").find(f=>f.toLowerCase()===nm)||c.name;
+    if(nm!==c.lname||!/\s/.test(nm)){   // one-word names and split-card faces are often ordinary words
+      const j=raw.indexOf(proper); if(j<0) continue;                          // need the card's own capitalization
+      if(j===0||/[.!?]\s*$/.test(raw.slice(0,j))) continue;                 // and not just a capital at the start of a sentence
+    }
+    found.push(nm); }
   found.sort((a,b)=>b.length-a.length);
   const keep=found.filter((nm,i)=>!found.slice(0,i).some(o=>o.includes(nm))&&!(typeof KEYWORDS!=="undefined"&&KEYWORDS.has(nm)));
   return [...new Set(keep.map(nm=>CARDDB.byName.get(nm)))].slice(0,max);
@@ -1071,7 +1078,13 @@ How to work:
 2. Cite rule numbers exactly as they appear in tool results, like "CR 702.19b". Never invent or guess a rule number. When a card has official rulings that settle the question, quote the ruling and say it's an official ruling. The Comprehensive Rules and official rulings outrank release notes; anything else is background only.
 3. Always read a card's text with lookup_card before describing what it does. If a name doesn't match, use search_all_cards, or say you couldn't find it and ask which card was meant.
 4. If the databases don't answer the question, say so plainly. Don't fill gaps from memory.
-5. Lead with a one- or two-sentence direct answer, then explain why in plain language, with a short example if it helps. Match the user's level.
+5. Answer every chat question in exactly this shape, in this order:
+   **Your question, restated:** the user's question rewritten precisely (cards, timing, format), followed by "Inferred answer:" and your first-pass answer in one sentence.
+   **Judge check:** verify the inferred answer against the rules and official rulings you looked up, citing them. Say plainly if the check changes the answer.
+   **Coach check:** the practical side: what the player should do, sequencing, risks, and anything in their deck that matters. The Coach never overrules the rules.
+   **Final call (Judge):** one or two sentences with the ruling. The Judge decides; if Judge and Coach disagree, the Judge wins on anything rules-related.
+   **Confidence: NN%** followed by 2–4 short bullets on why: what raises it (an explicit rule or official ruling covers it, card text is unambiguous) and what lowers it (missing details such as format, timing or controller; no ruling for this exact case; reasoning that combines several rules). Use about 90–99% when a rule or ruling states the answer directly, 70–89% when it follows clearly from several rules, 50–69% when it depends on details the user didn't give, and below 50% when the saved data doesn't really cover it.
+   Match the user's level of detail, and keep each part short.
 6. Keep Commander and Standard rules separate. If the format matters and is unclear, answer for each under its own heading.
 7. For anything involving casting, responding or triggers, show the stack top item first in a code block, like:
 \`\`\`
@@ -1429,17 +1442,58 @@ async function extrasBlock(q,cards){
   try{ const jt=await searchJudgeTips(q,3); if(jt.length) out.push("### Further reading (MTG Judges' blog)\n"+jt.map(x=>`- [${x.title}](${x.url})`).join("\n")); }catch(e){}
   return out.join("\n\n");
 }
+/* How much of the question's wording a text covers (0..1) */
+function coverage(text,ws){ if(!ws.length) return 0; const l=String(text).toLowerCase(); return ws.filter(w=>l.includes(w)).length/ws.length; }
+const firstSentence=s=>clip(String(s).replace(/\n[\s\S]*$/,"").split(/(?<=\.)\s/)[0],260);
 async function lookupChat(q){
   let cards=[]; try{ cards=await namesIn(q,5); }catch(e){}
   const rest=stripNames(q,cards), ws=words(rest);
-  const parts=[`Here's what the saved data has on this.`];
-  if(cards.length) parts.push("### Cards\n"+await cardBlock(cards,ws));
-  const rules=await rulesBlock(ws.length?rest:q,4,q); if(rules) parts.push("### Rules that match\n"+rules);
-  const d=DATA.decks.find(x=>q.toLowerCase().includes(x.name.toLowerCase()));
-  if(d&&ws.length){ const hits=d.sections.map(s=>({s,sc:score(plain(s.html),ws,"")})).filter(o=>o.sc>0).sort((a,b)=>b.sc-a.sc).slice(0,1);
-    for(const h of hits) parts.push(`### From your ${d.name} notes: ${h.s.title.replace(/^\d+\.\s*/,"")}\n${clip(plain(h.s.html),700)}`); }
-  const ex=await extrasBlock(ws.length?rest:q,cards); if(ex) parts.push(ex);
-  if(parts.length===1) parts.push("Nothing in the saved rules or cards matched. Try exact card names or a rules term like “trample” or “the stack”.");
+  // evidence: keyword rules, the best general rule match, and the most relevant official ruling
+  const kw=keywordRules(q), top=searchRules(ws.length?rest:q,4).filter(r=>!kw.some(k=>k.n===r.n));
+  let bestRuling=null;
+  for(const c of cards){ for(const r of await relevantRulings(c,ws,1)){ const cov=coverage(r.text,ws); if(!bestRuling||cov>bestRuling.cov) bestRuling={card:c.name,...r,cov}; } }
+  // choose the single sentence that best answers the question; the question's own keyword rules get priority
+  let lead=null, leadSentence="", best=-1;
+  for(const r of [...kw,...top]){
+    for(const s of r.t.split("\n")[0].split(/(?<=\.)\s+/)){
+      if(s.length<25) continue;
+      const sc=coverage(s,ws)+(kw.includes(r)?0.25:0)-s.length/4000;
+      if(sc>best){ best=sc; lead=r; leadSentence=s; }
+    }
+  }
+  // the inferred answer comes from the strongest piece of evidence
+  let inferred, source;
+  if(bestRuling&&bestRuling.cov>=0.5){ inferred=firstSentence(bestRuling.text); source=`the official ruling on ${bestRuling.card} (${bestRuling.date})`; }
+  else if(lead){ inferred=clip(leadSentence,300); source=`CR ${lead.n}`; }
+  else { inferred="The saved rules and cards don't clearly cover this."; source="no direct match"; }
+  const parts=[];
+  parts.push(`**Your question, restated:** ${clip(q,300)}${cards.length?` (cards: ${cards.map(c=>c.name).join(", ")})`:""}\nInferred answer: ${inferred} *(from ${source})*`);
+  // Judge check: the rules and rulings behind it
+  const judge=[];
+  if(cards.length) judge.push(await cardBlock(cards,ws));
+  const rules=await rulesBlock(ws.length?rest:q,4,q); if(rules) judge.push(rules);
+  parts.push("### Judge check\n"+(judge.join("\n\n")||"No rule or ruling in the saved data matched this question."));
+  // Coach check: practical notes from the decks, combos and further reading
+  const coach=[];
+  const d=DATA.decks.find(x=>q.toLowerCase().includes(x.name.toLowerCase()))||DATA.decks.find(x=>cards.some(c=>x.cards.some(k=>k.name===c.name)));
+  if(d&&ws.length){ const hit=d.sections.filter(s=>!/Summary|Power level/.test(s.title)).map(s=>({s,sc:score(plain(s.html),ws,"")})).filter(o=>o.sc>0).sort((a,b)=>b.sc-a.sc)[0];
+    if(hit) coach.push(`From your ${d.name} notes (${hit.s.title.replace(/^\d+\.\s*/,"")}): ${clip(plain(hit.s.html),500)}`); }
+  if(cards.length>=2){ try{ const cb=await findCombos(cards.slice(0,3).map(c=>c.name),2); if(cb.length) coach.push("Known combos with these cards: "+cb.map(x=>`${x.cards.join(" + ")} (${x.results.slice(0,2).join(", ")})`).join("; ")); }catch(e){} }
+  const ex=await extrasBlock(ws.length?rest:q,cards); if(ex) coach.push(ex);
+  parts.push("### Coach check\n"+(coach.join("\n\n")||"No saved strategy notes match this question."));
+  // Final call with an evidence-based confidence
+  let conf=25; const why=[];
+  const usedRuling=bestRuling&&bestRuling.cov>=0.5, cov=usedRuling?bestRuling.cov:(lead?coverage(leadSentence,ws):0);
+  conf+=Math.round(cov*45);
+  if(usedRuling){ conf+=10; why.push(`+ An official ruling on ${bestRuling.card} covers ${Math.round(cov*100)}% of the question's key words.`); }
+  else if(lead) why.push(`${cov>=0.5?"+":"−"} The best-matching rule sentence (CR ${lead.n}) covers ${Math.round(cov*100)}% of the question's key words.`);
+  if(kw.length&&!usedRuling&&kw.includes(lead)){ conf+=10; why.push(`+ It's the question's own keyword rule (${lead.n.replace(/[a-z]$/,"")}).`); }
+  if(cards.length){ conf+=Math.min(10,cards.length*5); why.push(`+ ${cards.length} card${cards.length>1?"s":""} recognized, with official text.`); }
+  else if(/[A-Z][a-z]+ [A-Z][a-z]+/.test(q.slice(1))){ conf-=10; why.push("− No card names were recognized; use exact names if the question is about specific cards."); }
+  if(!lead&&!bestRuling){ conf=Math.min(conf,25); why.push("− Nothing in the saved data answers it directly."); }
+  why.push("− Lookup mode matches text and can't combine several rules the way the Judge can when signed in.");
+  conf=Math.max(10,Math.min(90,conf));
+  parts.push(`### Final call (Judge)\n${inferred}\n\n**Confidence: ${conf}%** (how well the saved data matches your question)\n${why.map(w=>"- "+w).join("\n")}`);
   parts.push(LOOKUP_NOTE);
   return parts.join("\n\n");
 }
