@@ -162,6 +162,48 @@ img.ms{width:1.08em;height:1.08em;vertical-align:-.17em;margin:0 1px;border-radi
 .yeargroup h3{font:800 22px var(--display);margin:8px 0 0}
 .sethead{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .sethead img{width:56px;height:56px;filter:var(--set-filter)}
+/* deck builder */
+.small{font-size:14px}
+.bform{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px 16px;align-items:end}
+.bform label,.bform fieldset{display:grid;gap:4px;font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);min-width:0;border:0;padding:0;margin:0}
+.bform legend{padding:0;margin-bottom:4px}
+.bform .wide{grid-column:1/-1}
+.bform select,.bform input{font:16px var(--body);text-transform:none;letter-spacing:0;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);min-width:0;width:100%}
+.bform .inrow{display:flex;gap:8px}
+.bform .brow{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.buildpromo{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.tw{overflow-x:auto;max-width:100%}
+.cmp{min-width:640px}
+.cmp tr.on td{background:var(--surface-2)}
+.linkish{background:none;border:0;padding:0;color:var(--accent);font:inherit;cursor:pointer;text-align:left;text-decoration:underline}
+.ok{color:var(--ok)}
+.decktabs{margin:14px 0}
+.deckview{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:24px;align-items:start;margin-bottom:16px}
+.dv-side{display:grid;gap:14px}
+.dv-main{display:grid;gap:16px;min-width:0}
+.checks{list-style:none;padding:0;margin:0;display:grid;gap:4px;font-size:15px}
+.curve{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;height:120px;align-items:end;margin-top:6px;max-width:460px}
+.curve .bar{display:grid;grid-template-rows:1fr auto auto;height:100%;text-align:center;font:500 12px var(--mono);color:var(--muted)}
+.curve .bar span{align-self:end;background:linear-gradient(var(--accent),color-mix(in srgb,var(--accent) 55%,var(--bg)));border-radius:4px 4px 0 0;min-height:2px}
+.curve .bar b{color:var(--ink);font-weight:500}
+.keys{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:6px}
+.keys .tile .tname{font-size:13px}
+.combos{margin:6px 0;padding-left:20px}
+.dlist{columns:3 260px;column-gap:28px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 18px}
+.dgroup{break-inside:avoid;margin-bottom:14px}
+.dgroup h4{margin:0 0 4px;font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.dgroup ul{list-style:none;padding:0;margin:0}
+.dgroup li{display:grid;grid-template-columns:2ch minmax(0,1fr) auto auto auto;gap:6px;align-items:baseline;padding:2px 0;font-size:15px}
+.dgroup li a{color:var(--ink);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dgroup li a:hover{color:var(--accent)}
+.dgroup .q,.dgroup .pr{font:500 12px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.dgroup .cost{font-size:13px}
+.gc{font:600 9px var(--mono);background:var(--brass);color:#16110a;border-radius:3px;padding:0 3px}
+#decktext{width:100%;font:13px var(--mono);background:var(--sunk);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:12px}
+.saved{display:grid;gap:6px}
+.savedrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+@media (max-width:820px){ .deckview{grid-template-columns:1fr} .dv-side{grid-template-columns:minmax(0,200px) minmax(0,1fr)} }
+@media (max-width:560px){ .dv-side{grid-template-columns:1fr} .dv-side .tile{max-width:240px} }
 .site-footer{border-top:1px solid var(--line);background:var(--bg-2);padding-block:26px calc(26px + env(safe-area-inset-bottom,0px));color:var(--muted);font-size:14px}
 .site-footer .wrap{display:grid;gap:8px}
 @media (max-width:820px){
@@ -190,6 +232,7 @@ img.ms{width:1.08em;height:1.08em;vertical-align:-.17em;margin:0 1px;border-radi
       <a href="#" data-v="home">Index</a>
       <a href="#search?q=" data-v="search">All cards</a>
       <a href="#sets" data-v="sets">Sets</a>
+      <a href="#build" data-v="build">Deck Builder</a>
       <a href="#random" data-v="random">Random</a>
       <a href="../">The Judge ↗</a>
     </nav>
@@ -468,6 +511,10 @@ function homeView(){
     <div class="section-head"><div><h2 class="section">What cards do</h2><p>Function tags from Scryfall's Tagger project, so you can find every board wipe, tutor or mana rock.</p></div></div>
     <div class="chips">${roleCounts.map(([r, n]) => `<a class="chip small" href="#search?q=${encodeURIComponent("role:" + slugify(r))}&sort=rank">${esc(r)} <span class="n">${n.toLocaleString()}</span></a>`).join("")}</div>
   </section>
+  <section class="sec buildpromo">
+    <div><h3>Deck Builder</h3><p class="muted" style="margin:0">Pick a commander (or colors for 60-card formats), a theme, a budget and a power bracket, and get several decks that follow the format's rules.</p></div>
+    <a class="btn" href="#build">Build decks</a>
+  </section>
   <section>
     <div class="section-head"><div><h2 class="section">Latest sets</h2><p>Open a set to see every card in it, in collector-number order.</p></div><a class="btn ghost" href="#sets">All ${DB.sets.filter(s => s.n).length} sets</a></div>
     <div class="setrow">${latest.map(setLink).join("")}</div>
@@ -612,7 +659,7 @@ function cardView(name, params){
   return `<article class="cardpage">
     <div class="cp-media">
       <div class="big" id="bigimg">${bigImg(c, p)}</div>
-      <div class="row">${p.fl.includes("d") ? `<button class="btn ghost" id="flip" type="button">Flip card</button>` : ""}<a class="btn ghost" href="https://scryfall.com/card/${encodeURIComponent((DB.sets[p.s] || {}).code || "")}/${encodeURIComponent(p.cn)}" target="_blank" rel="noopener" id="scry">Scryfall ↗</a><a class="btn ghost" href="#random">Random card</a></div>
+      <div class="row">${p.fl.includes("d") ? `<button class="btn ghost" id="flip" type="button">Flip card</button>` : ""}<a class="btn ghost" href="https://scryfall.com/card/${encodeURIComponent((DB.sets[p.s] || {}).code || "")}/${encodeURIComponent(p.cn)}" target="_blank" rel="noopener" id="scry">Scryfall ↗</a><a class="btn ghost" href="#random">Random card</a>${canCommand(c) && c.leg[DB.formats.indexOf("commander")] === "L" ? `<a class="btn" href="#build?f=commander&c=${encodeURIComponent(c.name)}&t=auto&br=2&n=3">Build decks with it</a>` : ""}</div>
       <div class="caption" id="caption">${printCaption(c, p)}</div>
     </div>
     <div class="cp-info">
@@ -737,6 +784,423 @@ function artistView(name, params){
   </section>`;
 }
 
+/* ---------- Deck Builder: several decks from every legal card, following each format's construction rules ---------- */
+const DECK_FORMATS = {
+  commander: {label: "Commander", size: 100, singleton: true, cmd: true, legal: "commander", life: 40,
+    rules: "100 cards including your commander; one copy of each card except basic lands; every card within the commander's color identity; no banned cards."},
+  brawl: {label: "Brawl (Arena)", size: 100, singleton: true, cmd: true, walkers: true, legal: "brawl", life: 25,
+    rules: "100 cards including a legendary creature or planeswalker commander; singleton; color identity; cards available on MTG Arena."},
+  standard: {label: "Standard", size: 60, max: 4, legal: "standard", side: 15, life: 20,
+    rules: "At least 60 cards; up to 4 copies of a card except basic lands; up to 15 sideboard cards; only cards from current Standard sets."},
+  pioneer: {label: "Pioneer", size: 60, max: 4, legal: "pioneer", side: 15, life: 20, rules: "At least 60 cards; up to 4 copies of a card except basic lands; up to 15 sideboard cards; Return to Ravnica onward."},
+  modern: {label: "Modern", size: 60, max: 4, legal: "modern", side: 15, life: 20, rules: "At least 60 cards; up to 4 copies of a card except basic lands; up to 15 sideboard cards; Eighth Edition onward."},
+  legacy: {label: "Legacy", size: 60, max: 4, legal: "legacy", side: 15, life: 20, rules: "At least 60 cards; up to 4 copies of a card except basic lands; up to 15 sideboard cards; all sets, with a ban list."},
+  vintage: {label: "Vintage", size: 60, max: 4, legal: "vintage", side: 15, life: 20, rules: "At least 60 cards; up to 4 copies, but restricted cards only 1; up to 15 sideboard cards; all sets."},
+  pauper: {label: "Pauper", size: 60, max: 4, legal: "pauper", side: 15, life: 20, rules: "At least 60 cards; up to 4 copies; up to 15 sideboard cards; only cards printed at common."},
+  historic: {label: "Historic (Arena)", size: 60, max: 4, legal: "historic", side: 15, life: 20, rules: "At least 60 cards; up to 4 copies; up to 15 sideboard cards; cards on MTG Arena."},
+  timeless: {label: "Timeless (Arena)", size: 60, max: 4, legal: "timeless", side: 15, life: 20, rules: "At least 60 cards; up to 4 copies, restricted cards only 1; up to 15 sideboard cards; every card on MTG Arena."}
+};
+const BRACKETS = {
+  1: {label: "1 · Exhibition", gc: 0, combos: false, mld: false, turns: false, note: "Theme first, no Game Changers, combos, mass land destruction or extra turns."},
+  2: {label: "2 · Core", gc: 0, combos: false, mld: false, turns: false, note: "Like a precon: no Game Changers, no two-card infinite combos, no mass land destruction, no extra-turn chains."},
+  3: {label: "3 · Upgraded", gc: 3, combos: true, mld: false, turns: true, note: "Up to 3 Game Changers; no mass land destruction; combos allowed but should not win early."},
+  4: {label: "4 · Optimized", gc: 99, combos: true, mld: true, turns: true, note: "No restrictions beyond the ban list."}
+};
+const THEMES = [
+  {id: "auto", label: "Match the commander"},
+  {id: "tokens", label: "Tokens", rx: /create[^.]*\btokens?\b|populate/i, roles: ["Token maker", "Anthem"]},
+  {id: "counters", label: "+1/+1 counters", rx: /\+1\/\+1 counters?|proliferate/i, roles: ["Counters matter"]},
+  {id: "artifacts", label: "Artifacts", rx: /\bartifacts?\b/i, type: /Artifact/, roles: ["Artifact synergy"]},
+  {id: "enchantments", label: "Enchantments", rx: /\benchantments?\b|\baura\b/i, type: /Enchantment/},
+  {id: "spells", label: "Instants & sorceries", rx: /instant or sorcery|noncreature spell|whenever you cast/i, type: /Instant|Sorcery/},
+  {id: "graveyard", label: "Graveyard", rx: /graveyard/i, roles: ["Recursion", "Reanimation", "Mill", "Graveyard matters"]},
+  {id: "lifegain", label: "Lifegain", rx: /gains? [^.]*\blife\b|lifelink|whenever you gain life/i, roles: ["Lifegain"]},
+  {id: "lands", label: "Lands & landfall", rx: /landfall|whenever a land|additional land|lands you control/i, roles: ["Lands matter"]},
+  {id: "sacrifice", label: "Sacrifice", rx: /sacrifice (?:a|an|another)\b|whenever (?:a|another) creature[^.]*dies/i, roles: ["Sacrifice outlet"]},
+  {id: "aggro", label: "Attack & combat", rx: /whenever [^.]* attacks|combat damage to a player|\bhaste\b|double strike/i, roles: ["Evasion", "Anthem"], cheap: true},
+  {id: "control", label: "Control", rx: /counter target|destroy target|exile target|draws? (?:a|two|three) cards?/i, roles: ["Counterspell", "Removal", "Card draw", "Board wipe"]},
+  {id: "flyers", label: "Flyers", rx: /\bflying\b/i, kw: "flying"},
+  {id: "blink", label: "Blink & enters effects", rx: /exile [^.]*,? then return|when [^.]* enters/i, roles: ["Flicker"]},
+  {id: "energy", label: "Energy", rx: /\{E\}/},
+  {id: "typal", label: "Creature type (typal)", typal: true}
+];
+const VARIANTS = [
+  {name: "Focused", theme: 1.7, syn: 1.5, pop: .8, jitter: .15},
+  {name: "Crowd favorites", theme: 1, syn: 1, pop: 1.8, jitter: .15},
+  {name: "Budget", theme: 1.4, syn: 1.2, pop: 1, jitter: .25, cap: 1.5},
+  {name: "Wildcard", theme: 1.3, syn: 1.2, pop: .6, jitter: 1.4}
+];
+const BASIC = {W: "Plains", U: "Island", B: "Swamp", R: "Mountain", G: "Forest"};
+const GUILD = {W: "White", U: "Blue", B: "Black", R: "Red", G: "Green", WU: "Azorius", UB: "Dimir", BR: "Rakdos", RG: "Gruul", WG: "Selesnya", WB: "Orzhov", UR: "Izzet", BG: "Golgari", WR: "Boros", UG: "Simic",
+  WUB: "Esper", UBR: "Grixis", BRG: "Jund", WRG: "Naya", WUG: "Bant", WBG: "Abzan", WUR: "Jeskai", UBG: "Sultai", WBR: "Mardu", URG: "Temur", "": "Colorless"};
+const colorKey = s => "WUBRG".split("").filter(x => s.includes(x)).join("");
+const SYN_TERMS = ["token", "+1/+1 counter", "artifact", "enchantment", "graveyard", "sacrifice", "{E}", "landfall", "flying", "attacks", "instant", "sorcery", "gain life", "draw", "discard", "mill", "treasure", "food", "clue", "equipment", "aura", "vehicle", "proliferate", "exile", "dies", "enters", "legendary", "historic", "blocks", "tapped", "untap", "copy", "spell", "planeswalker", "loyalty", "dragon", "lifelink", "counter"];
+const MLD = /destroy all (?:nonbasic )?lands|each player sacrifices [^.]*lands|destroy all permanents/i;
+const ROLE_GROUPS = {ramp: ["Ramp", "Mana rock", "Mana creature", "Cost reducer"], draw: ["Card draw"], removal: ["Removal", "Counterspell"], wipe: ["Board wipe"], protect: ["Protection"]};
+const ROLE_LABEL = {ramp: "Ramp", draw: "Card draw", removal: "Removal & counters", wipe: "Board wipes", protect: "Protection"};
+const CMD_TARGETS = {ramp: 10, draw: 10, removal: 8, wipe: 3, protect: 2};
+
+function creatureTypes(){
+  if (DB.ctypes) return DB.ctypes;
+  const s = new Set();
+  for (const c of DB.cards) for (const face of c.type.split(" // ")) { const m = face.match(/Creature[^—]*—\s*(.+)$/); if (m) for (const t of m[1].split(/\s+/)) if (t.length > 2) s.add(t); }
+  return DB.ctypes = s;
+}
+function roleSet(c){ return new Set(c.roles.map(i => DB.roles[i])); }
+const REAL_DRAW = /draws? (?:two|three|four|five|x|that many|cards equal|a card for each)|whenever[^.]*\bdraws? a card|at the beginning of[^.]*draws? a card|draw cards equal/i;
+function hasGroup(c, g){
+  const r = roleSet(c);
+  if (g === "draw") return r.has("Card draw") && REAL_DRAW.test(c.text);   // repeatable or several cards, not a one-off cantrip
+  return ROLE_GROUPS[g].some(x => r.has(x));
+}
+function isBasic(c){ return /^Basic\b/.test(c.type) || /^Basic Snow/.test(c.type); }
+function isLand(c){ return /\bLand\b/.test(c.type.split(" // ")[0]); }
+function mainType(c){
+  const t = c.type.split(" // ")[0];
+  for (const k of ["Creature", "Planeswalker", "Battle", "Instant", "Sorcery", "Artifact", "Enchantment", "Land"]) if (t.includes(k)) return k;
+  return "Other";
+}
+function themeOf(id){ return THEMES.find(t => t.id === id) || THEMES[0]; }
+function themeScore(c, themes, typal){
+  let s = 0; const r = roleSet(c), text = c.text, type = c.type;
+  for (const t of themes){
+    if (t.rx && t.rx.test(text)) s += 2;
+    if (t.type && t.type.test(type)) s += 1.5;
+    if (t.kw && c.kw.includes(t.kw)) s += 1.5;
+    if (t.roles) s += Math.min(3, t.roles.filter(x => r.has(x)).length * 1.5);
+  }
+  for (const w of typal){ if (new RegExp("\\b" + w + "s?\\b").test(type)) s += 3.5; else if (new RegExp("\\b" + w + "s?\\b", "i").test(text)) s += 2; }
+  return s;
+}
+/* what a commander cares about: the themes its text matches, creature types it names, and mechanic words */
+function readCommander(cmd){
+  const scored = THEMES.filter(t => (t.rx || t.roles) && t.id !== "control").map(t => [t, themeScore(cmd, [t], [])]).filter(x => x[1] >= 2).sort((a, b) => b[1] - a[1]);
+  const types = [...creatureTypes()].filter(w => new RegExp("\\b" + w + "s?\\b").test(cmd.text) && !["Human"].includes(w)).slice(0, 2);
+  const terms = SYN_TERMS.filter(w => cmd.text.toLowerCase().includes(w.toLowerCase()));
+  return {themes: scored.slice(0, 2).map(x => x[0]), types, terms};
+}
+function buildOptions(params){
+  const f = DECK_FORMATS[params.get("f")] ? params.get("f") : "commander";
+  return {f, fmt: DECK_FORMATS[f], commander: params.get("c") || "", colors: colorKey((params.get("col") || "").toUpperCase()),
+    theme: params.get("t") || (DECK_FORMATS[f].cmd ? "auto" : "aggro"), typal: (params.get("ty") || "").trim(),
+    budget: params.get("b") ? Number(params.get("b")) : null, bracket: Number(params.get("br")) || 2, count: Math.min(4, Math.max(1, Number(params.get("n")) || 3))};
+}
+/* Build one deck. used: card name -> how many earlier decks took it (to make each deck different). exclude: names to leave out. */
+function buildDeck(o, variant, used, exclude){
+  const fi = DB.formats.indexOf(o.fmt.legal);
+  const legalHere = c => c.leg[fi] === "L" || c.leg[fi] === "R";
+  let cmd = null, ci, themes, typal = [], terms = [];
+  if (o.fmt.cmd){
+    cmd = DB.byName.get(o.commander.toLowerCase());
+    if (!cmd) return {error: `Pick a commander. “${o.commander}” isn't a card name in the index.`};
+    if (!(canCommand(cmd) || (o.fmt.walkers && /Legendary/.test(cmd.type) && /Planeswalker/.test(cmd.type)))) return {error: `${cmd.name} can't be a commander: it needs to be a legendary creature${o.fmt.walkers ? " or planeswalker" : ""}, or say it can be your commander.`};
+    if (!legalHere(cmd)) return {error: `${cmd.name} isn't legal in ${o.fmt.label} (${LEGAL_WORD[cmd.leg[fi]].toLowerCase()}).`};
+    ci = cmd.ci;
+    const read = readCommander(cmd); terms = read.terms;
+    themes = o.theme === "auto" ? read.themes : o.theme === "typal" ? [] : [themeOf(o.theme)];
+    typal = o.theme === "typal" ? (o.typal ? [o.typal.replace(/s$/, "")] : read.types) : (o.theme === "auto" ? read.types : []);
+  } else {
+    if (!o.colors) return {error: "Pick at least one color."};
+    ci = o.colors;
+    themes = o.theme === "typal" || o.theme === "auto" ? [] : [themeOf(o.theme)];
+    typal = o.theme === "typal" && o.typal ? [o.typal.replace(/s$/, "")] : [];
+  }
+  const br = BRACKETS[o.bracket] || BRACKETS[2];
+  const cap = variant.cap != null ? (o.budget != null ? Math.min(o.budget, variant.cap) : variant.cap) : o.budget;
+  const inColors = c => [...c.ci].every(x => ci.includes(x));
+  const extraTurn = c => roleSet(c).has("Extra turn") || /take an extra turn/i.test(c.text);
+  const pool = [];
+  for (const c of DB.cards){
+    if (c === cmd || isBasic(c) || !legalHere(c) || !inColors(c) || exclude.has(c.name)) continue;
+    if (/Conspiracy|Scheme|Plane\b|Phenomenon|Vanguard|Dungeon|Attraction|Contraption|Sticker/.test(c.type)) continue;
+    if (cap != null && (c.min == null || c.min > cap)) continue;
+    if (o.fmt.cmd && c.gc && br.gc === 0) continue;
+    if (o.fmt.cmd && !br.mld && MLD.test(c.text)) continue;
+    if (o.fmt.cmd && !br.turns && extraTurn(c)) continue;
+    if (!o.fmt.cmd && !c.ci && !isLand(c) && !/Artifact/.test(c.type)) continue;
+    if (!o.fmt.cmd && /\bcommander\b/i.test(c.text)) continue;   // Command Tower, Arcane Signet and the like do nothing outside Commander
+    const th = Math.min(6, themeScore(c, themes, typal));
+    const syn = cmd ? Math.min(4, terms.filter(w => c.text.toLowerCase().includes(w.toLowerCase())).length) : 0;
+    const pop = c.rank ? Math.max(0, 1 - c.rank / 25000) * 4 : 0;
+    let s = th * variant.theme + syn * variant.syn * .6 + pop * variant.pop;
+    if (c.mv >= 7) s -= 1.5; else if (c.mv === 6) s -= .5;
+    if ((themes.some(t => t.cheap)) && c.mv >= 5) s -= 1.5;
+    if (!o.fmt.cmd && /Creature/.test(c.type) && themes.some(t => t.cheap)) s += .8;
+    if (o.fmt.cmd && c.gc && o.bracket >= 3) s += o.bracket >= 4 ? 7 : 3.5;   // higher brackets want their allowed Game Changers
+    s += (Math.random() - .5) * variant.jitter * 2;
+    s -= (used.get(c.name) || 0) * 1.2;
+    pool.push({c, s, th});
+  }
+  pool.sort((a, b) => b.s - a.s);
+  return o.fmt.cmd ? fillCommander(o, variant, cmd, ci, pool, br, themes, typal) : fillConstructed(o, variant, ci, pool, themes, typal);
+}
+/* nonbasic lands, most-played first: lands that make two or more of the deck's colors, then a few popular utility lands */
+function landPicks(pool, ci, n, multi){
+  const mine = [...ci].map(x => BASIC[x]);
+  const findsOurs = c => { const named = [...c.text.matchAll(/\b(Plains|Island|Swamp|Mountain|Forest)\b/g)].map(m => m[1]); return !named.length || named.some(t => mine.includes(t)); };
+  const lands = pool.filter(x => isLand(x.c) && findsOurs(x.c)).sort((a, b) => (a.c.rank || 1e9) - (b.c.rank || 1e9));
+  const anyColor = c => /any color|commander's color identity/i.test(c.text);
+  const fixing = c => ci.length >= 2 && (c.ci.length >= 2 || (!multi && anyColor(c) && !/\{T\}, Pay|Sacrifice/.test(c.text)));
+  const out = lands.filter(x => fixing(x.c)).slice(0, multi ? n : Math.max(0, n - 3));
+  if (!multi) for (const x of lands){
+    if (out.length >= n) break;
+    if (out.includes(x) || anyColor(x.c) || !x.c.rank || x.c.rank > 2500) continue;
+    out.push(x);
+  }
+  return out;
+}
+function basicsFor(spells, ci, n){
+  if (!ci) return [{name: "Wastes", qty: n}];
+  const pips = {}; for (const x of ci) pips[x] = 1;
+  for (const {c, qty} of spells) for (const m of (c.cost.match(/\{[^}]+\}/g) || [])) for (const x of ci) if (m.includes(x)) pips[x] += qty;
+  const total = Object.values(pips).reduce((a, b) => a + b, 0);
+  const out = [...ci].map(x => ({x, name: BASIC[x], qty: Math.floor(n * pips[x] / total)}));
+  let left = n - out.reduce((a, b) => a + b.qty, 0);
+  out.sort((a, b) => pips[b.x] - pips[a.x]);   // the color with the most mana symbols gets the leftover lands
+  for (let i = 0; left > 0; i = (i + 1) % out.length, left--) out[i].qty++;
+  return out.filter(x => x.qty > 0);
+}
+function fillCommander(o, variant, cmd, ci, pool, br, themes, typal){
+  const nonbasic = ci.length <= 1 ? 6 : ci.length === 2 ? 11 : ci.length === 3 ? 15 : 18;
+  const LANDS = 36, SPELLS = 99 - LANDS;
+  const picked = new Map(); let gc = 0;
+  const take = x => { if (picked.has(x.c.name) || picked.size >= SPELLS) return false; if (x.c.gc){ if (gc >= br.gc) return false; gc++; } picked.set(x.c.name, x); return true; };
+  const spells = pool.filter(x => !isLand(x.c));
+  const count = g => [...picked.values()].filter(x => hasGroup(x.c, g)).length;
+  for (const g of ["wipe", "removal", "ramp", "draw", "protect"]){
+    // the best cards for each job, favoring ones that also fit the theme
+    const cands = spells.filter(x => hasGroup(x.c, g)).sort((a, b) => (b.s + b.th * .4) - (a.s + a.th * .4));
+    for (const x of cands){ if (count(g) >= CMD_TARGETS[g]) break; if (x.c.mv <= 5 || g === "wipe") take(x); }
+  }
+  let big = [...picked.values()].filter(x => x.c.mv >= 6).length;
+  const wantCreatures = themes.some(t => ["tokens", "aggro", "counters", "flyers", "blink"].includes(t.id)) || typal.length ? 28 : 18;
+  let creatures = [...picked.values()].filter(x => /Creature/.test(x.c.type)).length;
+  for (const x of spells){
+    if (picked.size >= SPELLS) break;
+    if (x.c.mv >= 6 && big >= 6) continue;
+    const isC = /Creature/.test(x.c.type);
+    if (!isC && creatures < wantCreatures && SPELLS - picked.size <= wantCreatures - creatures) continue;
+    if (take(x)){ if (x.c.mv >= 6) big++; if (isC) creatures++; }
+  }
+  const lands = landPicks(pool, ci, nonbasic, false).map(x => ({c: x.c, qty: 1, s: x.s}));
+  const main = [...picked.values()].map(x => ({c: x.c, qty: 1, s: x.s, th: x.th}));
+  const basics = basicsFor(main, ci, LANDS - lands.length).map(b => ({c: DB.byName.get(b.name.toLowerCase()), qty: b.qty, basic: true}));
+  return {o, variant, cmd, ci, themes, typal, main: [...main, ...lands, ...basics], side: [], gc};
+}
+function fillConstructed(o, variant, ci, pool, themes, typal){
+  const fi = DB.formats.indexOf(o.fmt.legal);
+  const aggro = themes.some(t => t.cheap);
+  const LANDS = aggro ? 22 : 24, SPELLS = 60 - LANDS;
+  const main = []; let n = 0, big = 0;
+  const copiesFor = (c, rank) => {
+    let k = c.leg[fi] === "R" ? 1 : rank < 6 ? 4 : rank < 9 ? 3 : 2;
+    if (/Legendary/.test(c.type)) k = Math.min(k, 2);
+    if (c.mv >= 5) k = Math.min(k, 2);
+    return k;
+  };
+  const add = (x) => { if (n >= SPELLS || main.some(m => m.c === x.c)) return; if (x.c.mv >= 5 && big >= 6) return; const k = Math.min(copiesFor(x.c, main.length), SPELLS - n); main.push({c: x.c, qty: k, s: x.s, th: x.th}); n += k; if (x.c.mv >= 5) big += k; };
+  const spells = pool.filter(x => !isLand(x.c) && x.c.mv <= (aggro ? 4 : 6));
+  // interaction first (about 8 copies), then the theme's best cards
+  for (const x of spells.filter(x => hasGroup(x.c, "removal") && x.c.mv <= 3 && /Instant|Sorcery/.test(x.c.type)).slice(0, 2)) add(x);
+  for (const x of spells){ if (n >= SPELLS) break; add(x); }
+  const multi = ci.length >= 2;
+  const duals = multi ? landPicks(pool, ci, ci.length === 2 ? 2 : 3, true).map(x => ({c: x.c, qty: 4, s: x.s})) : [];
+  const dualN = duals.reduce((a, b) => a + b.qty, 0);
+  const basics = basicsFor(main, ci, LANDS - dualN).map(b => ({c: DB.byName.get(b.name.toLowerCase()), qty: b.qty, basic: true}));
+  const inMain = new Set(main.map(m => m.c.name));
+  const side = []; let sn = 0;
+  for (const x of pool){
+    if (sn >= 15) break;
+    if (inMain.has(x.c.name) || isLand(x.c)) continue;
+    const r = roleSet(x.c);
+    if (!["Hate", "Removal", "Board wipe", "Counterspell", "Hand disruption", "Protection"].some(k => r.has(k))) continue;
+    const k = Math.min(x.c.leg[fi] === "R" ? 1 : 3, 15 - sn); side.push({c: x.c, qty: k}); sn += k;
+  }
+  return {o, variant, cmd: null, ci, themes, typal, main: [...main, ...duals, ...basics], side, gc: 0};
+}
+function deckName(d){
+  const parts = [...d.typal.map(t => t + " typal"), ...d.themes.map(t => t.label)].slice(0, 2);
+  const theme = parts.length ? parts.join(" & ") : "Good stuff";
+  const who = d.cmd ? d.cmd.name.split(/,| \/\/ /)[0] : (GUILD[colorKey(d.ci)] || colorKey(d.ci));
+  return `${who} · ${theme}`;
+}
+/* the format's construction rules, checked against the finished list */
+function checkDeck(d, combos){
+  const o = d.o, fi = DB.formats.indexOf(o.fmt.legal), checks = [];
+  const all = d.cmd ? [{c: d.cmd, qty: 1}, ...d.main] : d.main;
+  const total = all.reduce((a, b) => a + b.qty, 0), side = d.side.reduce((a, b) => a + b.qty, 0);
+  checks.push(o.fmt.cmd ? [total === 100, `Exactly 100 cards including the commander (${total})`] : [total >= 60, `At least 60 cards in the main deck (${total})`]);
+  if (o.fmt.side) checks.push([side <= 15, `Sideboard of 15 or fewer (${side})`]);
+  const counts = new Map(); for (const x of [...all, ...d.side]) if (!isBasic(x.c) && !/any number of cards named/i.test(x.c.text)) counts.set(x.c.name, (counts.get(x.c.name) || 0) + x.qty);
+  const tooMany = [...counts].filter(([nm, k]) => { const c = DB.byName.get(nm.toLowerCase()); return k > (o.fmt.singleton ? 1 : c.leg[fi] === "R" ? 1 : o.fmt.max); });
+  checks.push([!tooMany.length, o.fmt.singleton ? "One copy of each card except basic lands" : "No more than 4 copies of any card (1 if restricted), basics excepted" + (tooMany.length ? ": " + tooMany.map(x => x[0]).join(", ") : "")]);
+  const illegal = [...all, ...d.side].filter(x => !(x.c.leg[fi] === "L" || x.c.leg[fi] === "R"));
+  checks.push([!illegal.length, `Every card legal in ${o.fmt.label}` + (illegal.length ? ": " + illegal.map(x => x.c.name).join(", ") : "")]);
+  if (o.fmt.cmd){
+    const off = d.main.filter(x => ![...x.c.ci].every(y => d.ci.includes(y)));
+    checks.push([!off.length, `Every card within ${d.cmd.name}'s color identity (${d.ci || "colorless"})`]);
+    const br = BRACKETS[o.bracket];
+    const gcs = d.main.filter(x => x.c.gc).length;
+    checks.push([gcs <= br.gc, `Bracket ${o.bracket}: ${gcs} Game Changer${gcs === 1 ? "" : "s"} (limit ${br.gc >= 99 ? "none" : br.gc})`]);
+    if (!br.mld) checks.push([!d.main.some(x => MLD.test(x.c.text)), "No mass land destruction"]);
+    if (!br.turns) checks.push([!d.main.some(x => /take an extra turn/i.test(x.c.text)), "No extra-turn cards"]);
+    if (combos && !br.combos) checks.push([!combos.infinite2.length, "No two-card infinite combos" + (combos.infinite2.length ? ": " + combos.infinite2.map(r => r[0].join(" + ")).join("; ") : "")]);
+  }
+  if (o.budget != null) { const over = d.main.filter(x => !x.basic && (x.c.min == null || x.c.min > o.budget)); checks.push([!over.length, `Every card ${fmtUSD(o.budget)} or less`]); }
+  return checks;
+}
+async function deckCombos(d){
+  const names = new Set([...(d.cmd ? [d.cmd.name] : []), ...d.main.map(x => x.c.name)].map(n => n.toLowerCase()));
+  const seen = new Set(), inDeck = [];
+  for (const n of names){ for (const r of await combosFor(n)){ const k = r[0].join("|"); if (seen.has(k)) continue; seen.add(k); if (r[0].every(p => names.has(p.toLowerCase()))) inDeck.push(r); } }
+  inDeck.sort((a, b) => a[0].length - b[0].length);
+  return {all: inDeck, infinite2: inDeck.filter(r => r[0].length === 2 && r[1].some(x => /infinite/i.test(x)) && !(r[5] && r[5].length))};
+}
+/* build every variant; a bracket that bans two-card infinite combos gets one piece swapped out and the deck rebuilt */
+async function buildAll(o){
+  const used = new Map(), decks = [];
+  for (const v of VARIANTS.slice(0, o.count)){
+    const exclude = new Set(); let d, combos;
+    for (let tries = 0; tries < 4; tries++){
+      d = buildDeck(o, v, used, exclude); if (d.error) return {error: d.error};
+      combos = await deckCombos(d).catch(() => null);
+      if (!combos || !o.fmt.cmd || BRACKETS[o.bracket].combos || !combos.infinite2.length) break;
+      for (const r of combos.infinite2){ const pieces = r[0].filter(p => !d.cmd || p !== d.cmd.name).map(p => d.main.find(x => x.c.name === p)).filter(Boolean).sort((a, b) => (a.s || 0) - (b.s || 0)); if (pieces[0]) exclude.add(pieces[0].c.name); }
+    }
+    d.combos = combos; d.name = deckName(d); d.checks = checkDeck(d, combos);
+    for (const x of d.main) if (!x.basic) used.set(x.c.name, (used.get(x.c.name) || 0) + 1);
+    decks.push(d);
+  }
+  return {decks};
+}
+
+/* ---------- Deck Builder page ---------- */
+const BUILD = {key: "", result: null, tab: 0, images: false};
+function cmdOptions(walkers){
+  const fi = DB.formats.indexOf(walkers ? "brawl" : "commander");
+  return DB.cards.filter(c => (canCommand(c) || (walkers && /Legendary/.test(c.type) && /Planeswalker/.test(c.type))) && (c.leg[fi] === "L")).sort((a, b) => (a.rank || 1e9) - (b.rank || 1e9));
+}
+function buildView(params){
+  const o = buildOptions(params);
+  const cmds = o.fmt.cmd ? cmdOptions(!!o.fmt.walkers) : [];
+  const types = [...creatureTypes()].sort();
+  const sel = (id, opts, val) => `<select id="${id}">${opts.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(val) ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+  const saved = savedDecks();
+  return `<section class="builder">
+    <div class="section-head"><div><span class="label">Deck Builder</span><h1 class="page">Build decks from every card</h1>
+      <p>Pick a format and a plan. The builder makes up to four different decks from all legal cards, following that format's deck rules, and checks each one against them.</p></div></div>
+    <form class="bform sec" id="bform">
+      <label>Format ${sel("bf", Object.entries(DECK_FORMATS).map(([k, f]) => [k, f.label]), o.f)}</label>
+      ${o.fmt.cmd ? `<label class="wide">Commander <span class="inrow"><input id="bc" list="cmdlist" value="${esc(o.commander)}" placeholder="Type a legendary creature, e.g. Temmet, Naktamun's Will" autocomplete="off"><button class="btn ghost small" type="button" id="randcmd">Random</button></span>
+        <datalist id="cmdlist">${cmds.slice(0, 2500).map(c => `<option value="${esc(c.name)}">`).join("")}</datalist></label>`
+        : `<fieldset><legend>Colors</legend><div class="chips">${"WUBRG".split("").map(x => `<button type="button" class="chip small colorpick" data-c="${x}" aria-pressed="${o.colors.includes(x)}">${colorDots(x)} ${COLORNAME[x]}</button>`).join("")}</div></fieldset>`}
+      <label>Theme ${sel("bt", THEMES.filter(t => o.fmt.cmd || t.id !== "auto").map(t => [t.id, t.label]), o.theme)}</label>
+      <label id="tylabel"${o.theme === "typal" ? "" : " hidden"}>Creature type <input id="bty" list="typelist" value="${esc(o.typal)}" placeholder="e.g. Zombie" autocomplete="off"><datalist id="typelist">${types.map(t => `<option value="${esc(t)}">`).join("")}</datalist></label>
+      <label>Budget per card ${sel("bb", [["", "No limit"], [20, "$20"], [5, "$5"], [2, "$2"], [1, "$1"], [0.5, "$0.50"]], o.budget ?? "")}</label>
+      ${o.fmt.cmd ? `<label>Power bracket ${sel("bbr", Object.entries(BRACKETS).map(([k, b]) => [k, b.label]), o.bracket)}</label>` : ""}
+      <label>Decks ${sel("bn", [[1, "1"], [2, "2"], [3, "3"], [4, "4"]], o.count)}</label>
+      <div class="wide brow"><button class="btn" type="submit">Build decks</button><span class="muted small">${esc(o.fmt.rules)}${o.fmt.cmd ? " " + esc(BRACKETS[o.bracket].note) : ""}</span></div>
+    </form>
+    <div id="bout"></div>
+    ${saved.length ? `<section class="sec"><h3>Saved decks (${saved.length})</h3><div class="saved">${saved.map((s, i) => `<div class="savedrow"><a href="${esc(s.link)}">${esc(s.name)}</a><span class="muted small">${esc(s.format)} · ${esc(s.date)}</span><button class="btn ghost small" type="button" data-copy="${i}">Copy list</button><button class="btn ghost small" type="button" data-del="${i}">Delete</button></div>`).join("")}</div><p class="muted small">Saved in this browser only. Opening a saved deck rebuilds it from its settings, so the list can change after a data refresh; copy the list to keep it exactly.</p></section>` : ""}
+  </section>`;
+}
+function formParams(){
+  const p = new URLSearchParams();
+  const f = $("#bf").value; p.set("f", f);
+  if ($("#bc")) p.set("c", $("#bc").value.trim());
+  const cols = [...document.querySelectorAll(".colorpick[aria-pressed=true]")].map(b => b.dataset.c).join("");
+  if (cols) p.set("col", cols);
+  p.set("t", $("#bt").value);
+  if ($("#bt").value === "typal" && $("#bty").value.trim()) p.set("ty", $("#bty").value.trim());
+  if ($("#bb").value) p.set("b", $("#bb").value);
+  if ($("#bbr")) p.set("br", $("#bbr").value);
+  p.set("n", $("#bn").value);
+  return p;
+}
+async function wireBuild(params){
+  const form = $("#bform"); if (!form) return;
+  $("#bf").onchange = () => { const p = formParams(); if (DECK_FORMATS[p.get("f")].cmd !== DECK_FORMATS[buildOptions(params).f].cmd){ p.delete("t"); } go("#build?" + p + "&edit=1"); };
+  $("#bt").onchange = () => { $("#tylabel").hidden = $("#bt").value !== "typal"; };
+  document.querySelectorAll(".colorpick").forEach(b => b.onclick = () => b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true")));
+  const rc = $("#randcmd"); if (rc) rc.onclick = () => { const list = cmdOptions(!!buildOptions(new URLSearchParams("f=" + $("#bf").value)).fmt.walkers).slice(0, 1500); $("#bc").value = list[Math.floor(Math.random() * list.length)].name; };
+  form.onsubmit = e => { e.preventDefault(); go("#build?" + formParams()); };
+  document.querySelectorAll("[data-copy]").forEach(b => b.onclick = () => copyText(savedDecks()[Number(b.dataset.copy)].list, b));
+  document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { const s = savedDecks(); s.splice(Number(b.dataset.del), 1); storeDecks(s); route(); });
+  const o = buildOptions(params);
+  const ready = params.get("edit") ? false : o.fmt.cmd ? !!o.commander : !!o.colors;
+  if (!ready) return;
+  const out = $("#bout"); out.innerHTML = `<p class="loading">Building ${o.count} deck${o.count === 1 ? "" : "s"} and checking combos…</p>`;
+  const key = params.toString();
+  try {
+    if (BUILD.key !== key){ await new Promise(r => setTimeout(r, 20)); BUILD.result = await buildAll(o); BUILD.key = key; BUILD.tab = 0; }
+  } catch (e){ out.innerHTML = `<p class="err">${esc(e.message || e)}</p>`; return; }
+  if (!$("#bout")) return;
+  renderDecks();
+}
+function deckText(d){
+  const line = x => `${x.qty} ${x.c.name}`;
+  if (d.cmd) return ["Commander", line({qty: 1, c: d.cmd}), "", "Deck", ...d.main.map(line)].join("\n");
+  return ["Deck", ...d.main.map(line), ...(d.side.length ? ["", "Sideboard", ...d.side.map(line)] : [])].join("\n");
+}
+function copyText(text, btn){
+  const done = ok => { const t = btn.textContent; btn.textContent = ok ? "Copied" : "Select and copy below"; setTimeout(() => btn.textContent = t, 1600); };
+  try { navigator.clipboard.writeText(text).then(() => done(true), () => { done(false); showText(text); }); } catch (e){ done(false); showText(text); }
+}
+function showText(text){ const ta = $("#decktext"); if (ta){ ta.hidden = false; ta.value = text; ta.select(); } }
+function savedDecks(){ try { return JSON.parse(localStorage.getItem("mtgcards.decks") || "[]"); } catch (e){ return []; } }
+function storeDecks(s){ try { localStorage.setItem("mtgcards.decks", JSON.stringify(s.slice(0, 40))); } catch (e){} }
+function renderDecks(){
+  const out = $("#bout"), r = BUILD.result; if (!out || !r) return;
+  if (r.error){ out.innerHTML = `<div class="sec"><h3>Couldn't build that</h3><p class="err">${esc(r.error)}</p></div>`; return; }
+  const ds = r.decks, d = ds[BUILD.tab] || ds[0];
+  const stat = x => { const nonland = x.main.filter(y => !isLand(y.c)); const n = nonland.reduce((a, b) => a + b.qty, 0);
+    return {price: x.main.reduce((a, b) => a + (b.c.min || 0) * b.qty, 0) + (x.cmd ? x.cmd.min || 0 : 0), avg: n ? nonland.reduce((a, b) => a + b.c.mv * b.qty, 0) / n : 0,
+      lands: x.main.filter(y => isLand(y.c)).reduce((a, b) => a + b.qty, 0), theme: x.main.filter(y => (y.th || 0) > 0).reduce((a, b) => a + b.qty, 0), ok: x.checks.every(c => c[0])}; };
+  const compare = `<div class="tw"><table class="cmp"><thead><tr><th>Deck</th><th>Approach</th><th>Price</th><th>Avg. mana value</th><th>Lands</th><th>On-theme cards</th><th>Combos</th><th>Rules</th></tr></thead><tbody>${ds.map((x, i) => { const s = stat(x);
+    return `<tr${i === BUILD.tab ? ' class="on"' : ""}><td><button class="linkish" type="button" data-tab="${i}">${esc(x.name)}</button></td><td>${esc(x.variant.name)}</td><td>${fmtUSD(s.price)}</td><td>${s.avg.toFixed(2)}</td><td>${s.lands}</td><td>${s.theme}</td><td>${x.combos ? x.combos.all.length : "—"}</td><td>${s.ok ? '<span class="ok">✓ all pass</span>' : '<span class="err">✗ check</span>'}</td></tr>`; }).join("")}</tbody></table></div>`;
+  const s = stat(d);
+  const groups = {}; for (const x of d.main){ const t = isLand(x.c) ? "Land" : mainType(x.c); (groups[t] = groups[t] || []).push(x); }
+  const order = ["Creature", "Planeswalker", "Battle", "Instant", "Sorcery", "Artifact", "Enchantment", "Other", "Land"];
+  const curve = [0, 1, 2, 3, 4, 5, 6, 7].map(m => d.main.filter(x => !isLand(x.c) && (m === 7 ? x.c.mv >= 7 : x.c.mv === m)).reduce((a, b) => a + b.qty, 0));
+  const peak = Math.max(1, ...curve);
+  const roles = Object.keys(ROLE_GROUPS).map(g => [g, d.main.filter(x => !isLand(x.c) && hasGroup(x.c, g)).reduce((a, b) => a + b.qty, 0)]);
+  const key = d.main.filter(x => !isLand(x.c)).sort((a, b) => (b.th || 0) - (a.th || 0) || (a.c.rank || 1e9) - (b.c.rank || 1e9)).slice(0, 8);
+  const row = x => `<li><span class="q">${x.qty}</span><a href="${cardHref(x.c)}">${esc(x.c.name)}</a><span class="cost">${pips(x.c.cost)}</span>${x.c.gc ? '<span class="gc" title="Game Changer">GC</span>' : ""}<span class="pr">${x.c.min != null ? fmtUSD(x.c.min * x.qty) : ""}</span></li>`;
+  const listHTML = BUILD.images
+    ? `<div class="grid">${(d.cmd ? [{c: d.cmd, qty: 1}] : []).concat(d.main).map(x => tile(x.c, x.c.def, {line: `${x.qty}× · ${x.c.min != null ? fmtUSD(x.c.min) : ""}`})).join("")}</div>`
+    : `<div class="dlist">${d.cmd ? `<div class="dgroup"><h4>Commander</h4><ul>${row({c: d.cmd, qty: 1})}</ul></div>` : ""}${order.filter(t => groups[t]).map(t => `<div class="dgroup"><h4>${t === "Other" ? "Other" : t + (t.endsWith("y") ? "" : "s")} (${groups[t].reduce((a, b) => a + b.qty, 0)})</h4><ul>${groups[t].sort((a, b) => a.c.mv - b.c.mv || a.c.name.localeCompare(b.c.name)).map(row).join("")}</ul></div>`).join("")}${d.side.length ? `<div class="dgroup"><h4>Sideboard (${d.side.reduce((a, b) => a + b.qty, 0)})</h4><ul>${d.side.map(row).join("")}</ul></div>` : ""}</div>`;
+  const comboList = d.combos && d.combos.all.length ? `<ul class="combos">${d.combos.all.slice(0, 6).map(r => `<li>${r[0].map(n => { const c = DB.byName.get(n.toLowerCase()); return c ? `<a href="${cardHref(c)}">${esc(n)}</a>` : esc(n); }).join(" + ")} <span class="muted">— ${r[1].slice(0, 2).map(esc).join(", ")}</span></li>`).join("")}</ul>` : `<p class="muted">No known combos are complete in this list.</p>`;
+  const hero = d.cmd || (key[0] && key[0].c);
+  out.innerHTML = `
+    <div class="section-head" style="margin-top:8px"><div><h2 class="section">Your decks</h2><p>Each deck uses a different approach, and later decks avoid repeating earlier picks where they can.</p></div></div>
+    ${compare}
+    <div class="chips decktabs" role="tablist">${ds.map((x, i) => `<button class="chip" role="tab" type="button" data-tab="${i}" aria-pressed="${i === BUILD.tab}">${esc(x.variant.name)}</button>`).join("")}</div>
+    <article class="deckview">
+      <div class="dv-side">
+        ${hero && hero.def ? `<a class="tile" href="${cardHref(hero)}"><span class="im"><img src="${imgUrl(hero.def)}" alt="${esc(hero.name)}" width="488" height="680"></span></a>` : ""}
+        <div class="rules sec"><h3>Deck rules</h3><ul class="checks">${d.checks.map(([ok, t]) => `<li class="${ok ? "ok" : "err"}">${ok ? "✓" : "✗"} ${esc(t)}</li>`).join("")}</ul></div>
+      </div>
+      <div class="dv-main">
+        <div><span class="label">${esc(d.o.fmt.label)}${d.o.fmt.cmd ? " · Bracket " + d.o.bracket : ""} · ${esc(d.variant.name)}</span><h2 class="section" style="margin:2px 0 4px">${esc(d.name)}</h2>
+          <p class="muted" style="margin:0">${colorDots(d.ci)} ${esc(GUILD[colorKey(d.ci)] || "")} · about ${fmtUSD(s.price)} · average mana value ${s.avg.toFixed(2)} · ${s.lands} lands${d.typal.length ? " · typal: " + esc(d.typal.join(", ")) : ""}${d.themes.length ? " · themes: " + esc(d.themes.map(t => t.label).join(", ")) : ""}</p></div>
+        <div class="facts">${roles.map(([g, n]) => `<div class="fact"><span class="label">${ROLE_LABEL[g]}</span><b>${n}${d.o.fmt.cmd ? `<small class="muted"> / ${CMD_TARGETS[g]}</small>` : ""}</b></div>`).join("")}</div>
+        <div><span class="label">Mana curve (nonland cards)</span><div class="curve">${curve.map((n, m) => `<div class="bar" title="${n} card${n === 1 ? "" : "s"} at mana value ${m === 7 ? "7+" : m}"><span style="height:${Math.round(n / peak * 100)}%"></span><b>${n}</b><i>${m === 7 ? "7+" : m}</i></div>`).join("")}</div></div>
+        <div><span class="label">Key cards</span><div class="keys">${key.map(x => tile(x.c, x.c.def, {line: x.c.min != null ? fmtUSD(x.c.min) : ""})).join("")}</div></div>
+        <div><span class="label">Combos in this deck</span>${comboList}</div>
+      </div>
+    </article>
+    <div class="toolbar"><div class="chips"><button class="chip small" type="button" id="viewlist" aria-pressed="${!BUILD.images}">List</button><button class="chip small" type="button" id="viewimg" aria-pressed="${BUILD.images}">Images</button></div>
+      <div class="chips"><button class="btn ghost small" type="button" id="copydeck">Copy list</button><button class="btn ghost small" type="button" id="savedeck">Save deck</button></div></div>
+    <textarea id="decktext" rows="8" hidden aria-label="Deck list" readonly></textarea>
+    ${listHTML}`;
+  out.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { BUILD.tab = Number(b.dataset.tab); renderDecks(); });
+  $("#viewlist").onclick = () => { BUILD.images = false; renderDecks(); };
+  $("#viewimg").onclick = () => { BUILD.images = true; renderDecks(); };
+  $("#copydeck").onclick = e => copyText(deckText(d), e.currentTarget);
+  $("#savedeck").onclick = e => { const sv = savedDecks(); sv.unshift({name: d.name + " (" + d.variant.name + ")", format: d.o.fmt.label, date: new Date().toISOString().slice(0, 10), list: deckText(d), link: location.hash}); storeDecks(sv); e.currentTarget.textContent = "Saved"; };
+}
+
 /* ---------- routing ---------- */
 function go(hash, replace){ if (replace) history.replaceState(null, "", hash); else history.pushState(null, "", hash); route(); }
 let lastRoute = "";
@@ -761,6 +1225,7 @@ async function route(){
   else if (view === "sets"){ html = setsView(params); }
   else if (view === "set" && arg){ html = setView(arg, params); navKey = "sets"; }
   else if (view === "artist" && arg){ html = artistView(arg, params); navKey = ""; }
+  else if (view === "build"){ html = buildView(params); wire = () => wireBuild(params); navKey = "build"; }
   else { html = homeView(); navKey = "home"; wire = () => { const f = $("#heroform"); if (f) f.onsubmit = e => { e.preventDefault(); runSearch($("#heroq").value); }; }; }
   if (view !== "search") $("#sq").value = "";
   main.innerHTML = html;
