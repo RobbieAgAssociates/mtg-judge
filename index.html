@@ -165,7 +165,7 @@ main.banner-heads > .pagebanner + article > .deckhead:first-child{display:none}
 .decks{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
 .dtile{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:grid;grid-template-rows:auto 1fr;min-width:0;transition:transform .18s ease,border-color .18s ease}
 .dtile:hover{transform:translateY(-3px);border-color:var(--accent)}
-.dtile .art{aspect-ratio:16/8;background-size:cover;background-position:center 30%;position:relative}
+.dtile .art{aspect-ratio:16/8;background-size:cover;background-position:center 30%;position:relative;background-color:var(--sunk)}
 .dtile .art::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,var(--surface) 100%)}
 .dtile .body{padding:2px 16px 16px;display:grid;gap:10px;align-content:start}
 .dtile h3{font:800 23px/1.1 var(--display);margin:0}
