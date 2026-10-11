@@ -1168,7 +1168,7 @@ function drawLog(streaming){
 }
 async function wireChat(){
   drawLog(chat.busy?"":null);
-  const form=document.getElementById("composer"), ask=document.getElementById("ask"), note=document.getElementById("chatnote");
+  const form=document.getElementById("composer"), ask=document.getElementById("ask"), note=document.getElementById("chatnote"); if(!form||!ask||!note) return;
   document.getElementById("examples").onclick=e=>{const b=e.target.closest("[data-ex]"); if(b){ask.value=b.dataset.ex; form.requestSubmit();}};
   document.getElementById("clear").onclick=()=>{ if(chat.busy) return; chat.turns=[]; saveChat(); drawLog(null); };
   document.getElementById("stop").onclick=()=>chat.ctl?.abort();
@@ -1507,7 +1507,7 @@ function gameEl(){
       <div><button class="btn" type="submit">Start game</button></div>
     </form>`;
     queueMicrotask(()=>{
-      const n=document.getElementById("g-n"), box=document.getElementById("g-opps");
+      const n=document.getElementById("g-n"), box=document.getElementById("g-opps"); if(!n||!box) return;
       const draw=()=>{ const k=+n.value; box.innerHTML=Array.from({length:k},(_,i)=>`<div class="prow"><div class="field"><label class="label" for="g-on${i}">Opponent ${i+1}</label><input type="text" id="g-on${i}" value="Opponent ${i+1}"></div><div class="field"><label class="label" for="g-od${i}">Their deck or commander</label><input type="text" id="g-od${i}" list="g-decklist" placeholder="Optional"></div></div>`).join(""); };
       n.onchange=draw; draw();
       loadPrecons().then(list=>{ const dl=document.getElementById("g-decklist"); if(dl) dl.insertAdjacentHTML("beforeend",list.map(p=>`<option value="${esc(p.name)} (${esc(p.commander.join(" & "))})">`).join("")); }).catch(()=>{});
