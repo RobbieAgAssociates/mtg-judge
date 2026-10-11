@@ -41,6 +41,8 @@ a{color:var(--accent)}
 .nav::-webkit-scrollbar{display:none}
 .nav button{font:500 15px var(--body);color:var(--muted);background:none;border:0;padding:8px 11px;border-radius:8px;cursor:pointer;white-space:nowrap;display:inline-flex;gap:6px;align-items:center}
 .nav button:hover{color:var(--ink);background:var(--surface)}
+.nav a.navlink{font:500 15px var(--body);color:var(--muted);text-decoration:none;padding:8px 11px;border-radius:8px;white-space:nowrap;display:inline-flex;align-items:center}
+.nav a.navlink:hover{color:var(--ink);background:var(--surface)}
 .nav button[aria-current="page"]{color:var(--ink);background:var(--surface-2);box-shadow:inset 0 -2px 0 var(--accent)}
 .nav .sep{width:1px;background:var(--line);margin:8px 4px;flex:none}
 .rail{display:grid;gap:10px;padding-block:14px 4px}
@@ -296,6 +298,9 @@ const TYPES=["Creature","Planeswalker","Instant","Sorcery","Artifact","Enchantme
 const RULE = new Map(CR.rules.map((r,i)=>[r.n,i]));
 const SECTION = new Map(CR.sections.map(s=>[s.n,s]));
 let state={view:"home",types:new Set(),q:"",ruleSection:null,focusRule:null};
+/* the Card Index (every printing, with images) is its own page next to this one; the claude.ai copy links to the public one */
+const CARD_INDEX=(window.claude&&window.claude.use)?"https://robbieagassociates.github.io/mtg-judge/cards/":"cards/";
+const CARD_INDEX_TARGET=(window.claude&&window.claude.use)?' target="_blank" rel="noopener"':"";
 const VIEWS=()=>[["home","Home",""],["ask","Ask the Judge",""],["game","Game Tracker",""],["ideas","Deck Ideas",""],["comparison","Decks",""],["precons","Precons",""],"sep",["all","Search",""],["lookup","Cards",""],["rules","Rules",""],["sources","Sources",""]];
 
 function readHash(){
@@ -628,7 +633,7 @@ function go(view,opts={}){
 function renderTabs(){
   const t=document.getElementById("tabs");
   const deckOpen=DATA.decks.some(d=>d.id===state.view);
-  t.innerHTML=VIEWS().map(v=>v==="sep"?'<span class="sep" aria-hidden="true"></span>':`<button data-view="${v[0]}"${state.view===v[0]||(v[0]==="comparison"&&deckOpen)||(v[0]==="precons"&&state.view.startsWith("pc-"))?' aria-current="page"':""}>${esc(v[1])}</button>`).join("");
+  t.innerHTML=VIEWS().map(v=>v==="sep"?'<span class="sep" aria-hidden="true"></span>':`<button data-view="${v[0]}"${state.view===v[0]||(v[0]==="comparison"&&deckOpen)||(v[0]==="precons"&&state.view.startsWith("pc-"))?' aria-current="page"':""}>${esc(v[1])}</button>`).join("")+`<a class="navlink" href="${CARD_INDEX}"${CARD_INDEX_TARGET}>Card Index ↗</a>`;
   t.onclick=e=>{ const b=e.target.closest("button[data-view]"); if(b) go(b.dataset.view); };
   document.getElementById("brand").onclick=()=>go("home");
   const isDeck=DATA.decks.some(d=>d.id===state.view);
@@ -1622,12 +1627,12 @@ function cardDetails(c,ts,open){
   const el=document.createElement("details"); el.className="card"; if(open) el.open=true;
   el.innerHTML=`<summary><span class="qty"></span><span class="cname">${esc(c.name)}${c.gc?' <span class="badge">Game Changer</span>':""}</span><span class="cost">${pips(c.cost)}</span></summary>
     <div class="cardbody"><span class="ctype">${esc(c.type)}${c.stats?" · "+esc(c.stats):""}</span><span class="ctext">${pips(c.text||"")}</span>
-    <span><span class="badge${c.legal.startsWith("Legal")?"":" bad"}">${esc(c.legal)}</span> <a href="https://scryfall.com/search?q=${encodeURIComponent('!"'+c.name+'"')}" target="_blank" rel="noopener">Scryfall</a> · <a href="https://gatherer.wizards.com/search?name=${encodeURIComponent(c.name.split(" // ")[0])}" target="_blank" rel="noopener">Gatherer</a> · <button class="linklike" data-rulings="${esc(c.name)}">Official rulings</button></span><div class="rulings" hidden></div></div>`;
+    <span><span class="badge${c.legal.startsWith("Legal")?"":" bad"}">${esc(c.legal)}</span> <a href="${CARD_INDEX}#card/${encodeURIComponent(c.name)}"${CARD_INDEX_TARGET}>Every printing</a> · <a href="https://scryfall.com/search?q=${encodeURIComponent('!"'+c.name+'"')}" target="_blank" rel="noopener">Scryfall</a> · <a href="https://gatherer.wizards.com/search?name=${encodeURIComponent(c.name.split(" // ")[0])}" target="_blank" rel="noopener">Gatherer</a> · <button class="linklike" data-rulings="${esc(c.name)}">Official rulings</button></span><div class="rulings" hidden></div></div>`;
   highlight(el,ts); return el;
 }
 function lookupPage(main,ts){
   const art=document.createElement("article"); art.className="deck";
-  art.innerHTML=`<div class="deckhead"><h2>Card Lookup</h2><span class="meta">Official text for every Magic card, from Scryfall (${esc(CARDDB.date)})</span></div>`;
+  art.innerHTML=`<div class="deckhead"><h2>Card Lookup</h2><span class="meta">Official text for every Magic card, from Scryfall (${esc(CARDDB.date)}). For images of every printing, open the <a href="${CARD_INDEX}"${CARD_INDEX_TARGET}>Card Index</a>.</span></div>`;
   const sec=document.createElement("section"); sec.className="sec"; art.appendChild(sec); main.appendChild(art);
   const q=state.q;
   if(!ts.length){ sec.innerHTML=`<p>Type a card name or some of its rules text above. Use this for your opponents' cards: the Judge reads the same text when it checks a move.</p><p class="status" id="dbstatus">${CARDDB.list?CARDDB.list.length.toLocaleString()+" cards ready.":"Unpacking the card database…"}</p>`; }

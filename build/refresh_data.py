@@ -4,7 +4,7 @@ Usage, from the repo root:
     python3 build/refresh_data.py            # everything
     python3 build/refresh_data.py cards cr   # only some steps
 
-Steps: cards (Scryfall Oracle cards), rulings (Scryfall rulings), cr (Comprehensive Rules),
+Steps: cards (Scryfall Oracle cards), rulings (Scryfall rulings), prints (every printing, for the Card Index), cr (Comprehensive Rules),
 precons (MTGJSON Commander decklists + commander art + set symbols), combos (Commander Spellbook),
 edhrec (picks for the four decks' commanders), tips (MTG Judges' Rules Tips index).
 Wizards' release notes are not refreshed here; add new sets' notes by hand.
@@ -343,7 +343,103 @@ def step_tips(tmp):
     print(f"tips: {len(out):,}")
 
 
-STEPS = ["cards", "rulings", "cr", "precons", "combos", "edhrec", "tips"]
+# The Card Index's function tags (Scryfall Tagger oracle tags, children included) and their labels.
+ROLES = [("ramp", "Ramp"), ("mana-rock", "Mana rock"), ("mana-dork", "Mana creature"), ("cost-reducer", "Cost reducer"), ("ritual", "Ritual"),
+         ("card-advantage", "Card advantage"), ("draw", "Card draw"), ("cantrip", "Cantrip"), ("tutor", "Tutor"), ("library-manipulation", "Library manipulation"),
+         ("removal", "Removal"), ("sweeper", "Board wipe"), ("counterspell", "Counterspell"), ("burn", "Burn"), ("bounce", "Bounce"),
+         ("theft", "Steal"), ("tapper", "Tapper"), ("pinger", "Pinger"), ("hand-disruption", "Hand disruption"), ("hate", "Hate"),
+         ("recursion", "Recursion"), ("reanimate", "Reanimation"), ("mill", "Mill"), ("sacrifice-outlet", "Sacrifice outlet"),
+         ("repeatable-token-generator", "Token maker"), ("anthem", "Anthem"), ("evasion", "Evasion"), ("gives-evasion", "Gives evasion"),
+         ("combat-trick", "Combat trick"), ("protection", "Protection"), ("cheat-death", "Cheat death"), ("fog", "Fog"), ("lifegain", "Lifegain"),
+         ("copy", "Copy"), ("flicker", "Flicker"), ("untapper", "Untapper"), ("extra-turn", "Extra turn"), ("mana-sink", "Mana sink"),
+         ("typal", "Typal"), ("counters-matter", "Counters matter"), ("lands-matter", "Lands matter"), ("synergy-artifact", "Artifact synergy"),
+         ("cards-in-graveyard-matter", "Graveyard matters"), ("group-slug", "Group slug"), ("multiplayer", "Multiplayer"), ("utility-land", "Utility land")]
+FORMATS = ["standard", "pioneer", "modern", "legacy", "vintage", "commander", "pauper", "historic", "timeless", "brawl", "oathbreaker", "penny"]
+
+
+def step_prints(tmp):
+    """Every printing of every card (Scryfall default_cards) for the Card Index, plus formats, function tags and sets."""
+    tags = {}
+    path = os.path.join(tmp, "otags.jsonl.gz")
+    download(bulk_uri("oracle_tags"), path)
+    by_id = {}
+    for line in gzip.open(path, "rt", encoding="utf-8"):
+        line = line.strip().rstrip(",")
+        if line and line not in "[]":
+            t = json.loads(line); by_id[t["id"]] = t
+    by_slug = {t["slug"]: t for t in by_id.values()}
+
+    def tagged(t, seen):
+        if t["id"] in seen:
+            return set()
+        seen.add(t["id"])
+        s = {x["oracle_id"] for x in t["taggings"]}
+        for c in t["child_ids"]:
+            if c in by_id:
+                s |= tagged(by_id[c], seen)
+        return s
+    for i, (sl, _) in enumerate(ROLES):
+        for oid in tagged(by_slug[sl], set()) if sl in by_slug else ():
+            tags.setdefault(oid, []).append(i)
+
+    sets = sorted(get_json("https://api.scryfall.com/sets")["data"], key=lambda s: (s.get("released_at") or "9999", s["code"]))
+    set_ix = {s["code"]: i for i, s in enumerate(sets)}
+    path = os.path.join(tmp, "default.jsonl.gz")
+    download(bulk_uri("default_cards"), path)
+    skip = {"token", "double_faced_token", "emblem", "art_series", "vanguard", "scheme", "planar"}
+    main_types = {"expansion", "core", "commander", "masters", "draft_innovation", "starter", "duel_deck", "funny", "eternal"}
+    known = {r[0] for r in json.loads(gzip.decompress(base64.b64decode(open(os.path.join(SITE, "cards.b64.txt")).read())))}
+    cards, artists, art_ix, used_sets = {}, [], {}, set()
+    for c in jsonl(path):
+        c = flatten(c)
+        name = c["name"]
+        if c.get("layout") in skip or c.get("set_type") in ("token", "minigame") or name not in known:
+            continue   # same cards as the cards step (theme cards, tokens and the like are left out)
+        card = cards.get(name)
+        if card is None:
+            leg = c.get("legalities", {})
+            card = cards[name] = {"mv": c.get("cmc", 0), "leg": "".join({"legal": "L", "banned": "B", "restricted": "R"}.get(leg.get(f), "N") for f in FORMATS),
+                                  "flags": ("R" if c.get("reserved") else "") + ("G" if c.get("game_changer") else ""),
+                                  "rank": c.get("edhrec_rank"), "roles": sorted(tags.get(c.get("oracle_id"), [])),
+                                  "kw": c.get("keywords", []), "prints": []}
+        elif c.get("edhrec_rank") and not card["rank"]:
+            card["rank"] = c["edhrec_rank"]
+        a = c.get("artist") or ""
+        if a not in art_ix:
+            art_ix[a] = len(artists); artists.append(a)
+        faces = c.get("card_faces") or []
+        p = c.get("prices") or {}
+        fl = ("d" if len(faces) > 1 and all("image_uris" in f for f in faces) else "") + ("D" if c.get("digital") else "") + \
+             ("P" if c.get("promo") else "") + ("n" if c.get("image_status") in ("missing", "placeholder") else "") + \
+             ("F" if c.get("finishes") == ["foil"] else "") + ("x" if c.get("full_art") else "") + ("b" if c.get("border_color") == "borderless" else "")
+        card["prints"].append([set_ix.get(c["set"], -1), c["collector_number"], c["id"].replace("-", ""), (c.get("rarity") or "c")[0],
+                               art_ix[a], p.get("usd") or p.get("usd_foil") or p.get("usd_etched") or "", fl, c.get("lang", "en"), c.get("released_at", "")])
+        used_sets.add(c["set"])
+    rows = []
+    for name in sorted(cards):
+        card = cards[name]
+        pr = sorted(card["prints"], key=lambda x: (x[8], x[0]), reverse=True)
+        # the picture shown in grids: the newest regular English paper printing with an image
+        def good(x):
+            st = sets[x[0]]["set_type"] if x[0] >= 0 else ""
+            return x[7] == "en" and "D" not in x[6] and "n" not in x[6] and "P" not in x[6] and st in main_types
+        default = next((i for i, x in enumerate(pr) if good(x) and "x" not in x[6] and "b" not in x[6]), None)
+        if default is None:
+            default = next((i for i, x in enumerate(pr) if good(x)), None)
+        if default is None:
+            default = next((i for i, x in enumerate(pr) if "n" not in x[6]), 0)
+        # keep a printing's own release date only when it differs from its set's (Secret Lair drops, The List)
+        rows.append([name, card["mv"], card["leg"], card["flags"], card["rank"], card["roles"], card["kw"], default,
+                     [x[:8] + ([x[8]] if x[0] >= 0 and x[8] != (sets[x[0]].get("released_at") or "") else []) for x in pr]])
+    set_rows = [[s["code"], s["name"], s.get("released_at") or "", s["set_type"], os.path.basename(s["icon_svg_uri"]).split(".")[0] if s.get("icon_svg_uri") else "",
+                 s.get("parent_set_code") or "", 1 if s.get("digital") else 0, s.get("card_count", 0)] for s in sets]
+    out = {"date": datetime.date.today().isoformat(), "formats": FORMATS, "roles": [label for _, label in ROLES],
+           "sets": set_rows, "artists": artists, "cards": rows}
+    open(os.path.join(SITE, "prints.b64.txt"), "w").write(pack(out))
+    print(f"prints: {sum(len(r[8]) for r in rows):,} printings of {len(rows):,} cards in {len(used_sets):,} sets")
+
+
+STEPS = ["cards", "rulings", "prints", "cr", "precons", "combos", "edhrec", "tips"]
 
 if __name__ == "__main__":
     want = sys.argv[1:] or STEPS
@@ -366,7 +462,7 @@ if __name__ == "__main__":
                     step_rulings(tmp, oracle_path)
                 else:
                     globals()["step_" + s](tmp)
-                if s in ("cards", "rulings", "combos"):
+                if s in ("cards", "rulings", "prints", "combos"):
                     info["data_date"] = today
                 if s == "edhrec":
                     info["edhrec_date"] = today

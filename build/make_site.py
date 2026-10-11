@@ -2,7 +2,7 @@
 
 Usage, from the website folder (the git repo):
     python3 build/make_site.py
-Writes website/index.html and, one level up, mtg-judge.html for the claude.ai page.
+Writes website/index.html, website/cards/index.html (the Card Index) and, one level up, mtg-judge.html for the claude.ai page.
 """
 import os
 import subprocess
@@ -46,6 +46,7 @@ def main():
     with open(out, "w", encoding="utf-8") as f:
         f.write(HEAD + body + "</body></html>\n")
     print("wrote", out)
+    subprocess.run([sys.executable, "-I", os.path.join(HERE, "make_index.py")], check=True)   # the Card Index page, cards/index.html
 
 
 if __name__ == "__main__":
