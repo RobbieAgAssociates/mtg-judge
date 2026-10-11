@@ -23,24 +23,39 @@ SITE = os.path.dirname(HERE)
 out = os.path.expanduser(sys.argv[1] if len(sys.argv) > 1 else "~/.claude/agents/mtg-judge-data")
 os.makedirs(out, exist_ok=True)
 unpack = lambda p: json.loads(gzip.decompress(base64.b64decode(open(p).read())))
+class wopen:
+    """Write a data file atomically (to a .tmp file, then swap it in), so an agent reading mid-refresh never sees half a file."""
+    def __init__(self, path):
+        self.path = path
+    def __enter__(self):
+        self.f = open(self.path + ".tmp", "w")
+        return self.f
+    def __exit__(self, kind, *rest):
+        self.f.close()
+        if kind is None:
+            os.replace(self.path + ".tmp", self.path)
+        else:
+            os.remove(self.path + ".tmp")
+
+
 flat = lambda s: str(s).replace("\t", " ").replace("\r", " ").replace("\n", " / ")
 LEGAL = {"L": "legal", "B": "banned", "N": "not legal", "R": "restricted"}
 
 cards = unpack(os.path.join(SITE, "cards.b64.txt"))
-with open(os.path.join(out, "cards.tsv"), "w") as f:
+with wopen(os.path.join(out, "cards.tsv")) as f:
     f.write("name\tcost\ttype\tstats\tcommander\tgame_changer\tcolors\tusd\ttext\n")
     for name, cost, typ, text, stats, flags, ci, usd in cards:
         f.write("\t".join(map(flat, [name, cost, typ, stats, LEGAL.get(flags[:1], ""), "yes" if "G" in flags else "", ci or "C", usd, text])) + "\n")
 
 rulings = unpack(os.path.join(SITE, "rulings.b64.txt"))
-with open(os.path.join(out, "rulings.tsv"), "w") as f:
+with wopen(os.path.join(out, "rulings.tsv")) as f:
     f.write("card\tdate\tsource\truling\n")
     for name, rs in sorted(rulings.items()):
         for date, text, src in rs:
             f.write("\t".join(map(flat, [name, date, "Wizards" if src == "W" else "Scryfall", text])) + "\n")
 
 cr = json.load(open(os.path.join(HERE, "data", "cr", "cr.json")))
-with open(os.path.join(out, "cr.txt"), "w") as f:
+with wopen(os.path.join(out, "cr.txt")) as f:
     f.write(cr["effective"] + "\n")
     for s in cr["sections"]:
         f.write(f"SECTION {s['n']} {s['t']}\n")
@@ -50,7 +65,7 @@ with open(os.path.join(out, "cr.txt"), "w") as f:
         f.write(f"GLOSSARY {g['term']}: {flat(g['def'])}\n")
 
 topics = json.load(open(os.path.join(HERE, "data", "topics.json")))
-with open(os.path.join(out, "topics.txt"), "w") as f:
+with wopen(os.path.join(out, "topics.txt")) as f:
     for t in topics:
         f.write(f"TOPIC {t['title']}: {t['answer']} (CR {', '.join(t['rules'])}) Coach: {t.get('coach','')}\n")
 
@@ -62,7 +77,7 @@ uuid = lambda h: f"{h[:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:]}"
 img = lambda h: f"https://cards.scryfall.io/normal/front/{h[0]}/{h[1]}/{uuid(h)}.jpg"
 INDEX = "https://robbieagassociates.github.io/mtg-judge/cards/#card/"
 n_prints = 0
-with open(os.path.join(out, "prints.tsv"), "w") as fp, open(os.path.join(out, "cardinfo.tsv"), "w") as fc:
+with wopen(os.path.join(out, "prints.tsv")) as fp, wopen(os.path.join(out, "cardinfo.tsv")) as fc:
     fp.write("name\tset\tset_name\tdate\tnumber\trarity\tartist\tusd\tflags\tlang\timage\n")
     fc.write("name\tmv\t" + "\t".join(formats) + "\treserved\tgame_changer\tedhrec_rank\troles\tkeywords\tprintings\tfirst_printed\tmin_usd\tmax_usd\tindex\n")
     for name, mv, leg, flags, rank, rl, kw, default, prints in pr["cards"]:
@@ -77,18 +92,18 @@ with open(os.path.join(out, "prints.tsv"), "w") as fp, open(os.path.join(out, "c
             fp.write("\t".join(map(flat, [name, st[0], st[1], p[8] if len(p) > 8 else st[2], p[1], RAR.get(p[3], p[3]), artists[p[4]], p[5],
                      ", ".join(FLAGS[f] for f in p[6] if f in FLAGS), p[7], "" if "n" in p[6] else img(p[2])])) + "\n")
             n_prints += 1
-with open(os.path.join(out, "sets.tsv"), "w") as f:
+with wopen(os.path.join(out, "sets.tsv")) as f:
     f.write("code\tname\tdate\ttype\tcards\tdigital\n")
     for code, nm, date, typ, icon, parent, digital, count in sets:
         f.write("\t".join(map(flat, [code, nm, date, typ, count, "yes" if digital else ""])) + "\n")
 
 combos = unpack(os.path.join(SITE, "combos.b64.txt"))
-with open(os.path.join(out, "combos.tsv"), "w") as f:
+with wopen(os.path.join(out, "combos.tsv")) as f:
     f.write("cards\tresults\tcolors\talso_needs\n")
     for r in combos:
         f.write("\t".join(map(flat, [" + ".join(r[0]), "; ".join(r[1]), r[4] or "C", "; ".join(r[5] or [])])) + "\n")
 precons = unpack(os.path.join(HERE, "data", "bulk", "precons.b64"))
-with open(os.path.join(out, "precons.tsv"), "w") as f:
+with wopen(os.path.join(out, "precons.tsv")) as f:
     f.write("deck\tset\tdate\tcommander\tcount\tcard\n")
     for d in precons:
         for c in d["cards"]:
@@ -96,6 +111,6 @@ with open(os.path.join(out, "precons.tsv"), "w") as f:
             f.write("\t".join(map(flat, [d["name"], d["code"], d["date"], " / ".join(d["commander"]), n, name])) + "\n")
 
 info = json.load(open(os.path.join(HERE, "data", "info.json")))
-with open(os.path.join(out, "info.txt"), "w") as f:
+with wopen(os.path.join(out, "info.txt")) as f:
     f.write(f"Data saved {info['data_date']}; {cr['effective']}\n{len(cards):,} cards, {sum(len(v) for v in rulings.values()):,} rulings, {len(cr['rules']):,} rules, {len(topics)} topics, {n_prints:,} printings in {len(sets):,} sets.\n")
 print("wrote", out, "|", len(cards), "cards,", sum(len(v) for v in rulings.values()), "rulings,", len(cr["rules"]), "rules,", n_prints, "printings")

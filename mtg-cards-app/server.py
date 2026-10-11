@@ -4,11 +4,15 @@ Run it, then open http://127.0.0.1:8790 (the script opens it for you):
     python3 server.py            # or double-click "Start MTG Cards.command"
     python3 server.py --port 8791 --no-browser
 
+Each time the page is opened or reloaded, the server checks Scryfall in the background and, when Scryfall has newer
+card data than the saved copy, refreshes it (cards, rulings and printings), rebuilds the site files and re-exports the
+agents' data. Turn that off with --no-refresh.
+
 Each question runs the real agent through the Claude Code CLI (`claude -p --agent mtg-cards`) on this Mac,
 using your Claude Code sign-in. Follow-up questions resume the same agent session. The server listens on
 127.0.0.1 only and refuses requests from other websites.
 """
-import argparse, glob, json, os, re, shutil, subprocess, sys, threading, webbrowser
+import argparse, glob, json, os, re, shutil, subprocess, sys, threading, time, urllib.request, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +42,75 @@ def find_claude():
     found = glob.glob(os.path.expanduser("~/Library/Application Support/Claude/claude-code/*/*/claude.app/Contents/MacOS/claude"))
     version = lambda p: [int(x) for x in re.findall(r"\d+", p.split("/claude-code/")[1].split("/")[0])]
     return max(found, key=version) if found else None
+
+
+class Refresher:
+    """Refresh the saved card data when Scryfall has published newer data. One refresh at a time; checks are rate-limited."""
+    CHECK_EVERY = 120   # seconds between Scryfall checks, so reloading the page doesn't hammer it
+    STAMP = os.path.join(DATA, "scryfall_stamp.json")
+
+    def __init__(self, enabled):
+        self.enabled = enabled
+        self.lock = threading.Lock()
+        self.last_check = 0.0
+        self.state = {"status": "off" if not enabled else "idle", "message": "" if enabled else "Automatic data refresh is off."}
+
+    def set(self, status, message):
+        self.state = {"status": status, "message": message, "at": time.strftime("%H:%M")}
+
+    def trigger(self):
+        if not self.enabled or self.state["status"] in ("checking", "updating") or time.time() - self.last_check < self.CHECK_EVERY:
+            return
+        self.last_check = time.time()
+        threading.Thread(target=self.run, daemon=True).start()
+
+    def scryfall_updated(self):
+        req = urllib.request.Request("https://api.scryfall.com/bulk-data", headers={"User-Agent": "mtg-cards-app/1.0", "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            data = json.load(r)["data"]
+        return max(b["updated_at"][:19] for b in data if b["type"] in ("oracle_cards", "default_cards", "rulings"))
+
+    def saved_stamp(self):
+        try:
+            return json.load(open(self.STAMP))["scryfall_updated"]
+        except (OSError, ValueError, KeyError):
+            pass
+        # no stamp yet: treat data saved on a given day as covering Scryfall's files from that day
+        m = re.search(r"Data saved (\d{4}-\d{2}-\d{2})", open(os.path.join(DATA, "info.txt")).read()) if os.path.exists(os.path.join(DATA, "info.txt")) else None
+        return m.group(1) + "T23:59:59" if m else ""
+
+    def write_stamp(self, stamp):
+        with open(self.STAMP + ".tmp", "w") as f:
+            json.dump({"scryfall_updated": stamp, "refreshed": time.strftime("%Y-%m-%d %H:%M")}, f)
+        os.replace(self.STAMP + ".tmp", self.STAMP)
+
+    def run(self):
+        if not self.lock.acquire(blocking=False):
+            return
+        try:
+            self.set("checking", "Checking Scryfall for new card data")
+            latest, saved = self.scryfall_updated(), self.saved_stamp()
+            if saved and latest <= saved:
+                if not os.path.exists(self.STAMP):
+                    self.write_stamp(saved)
+                self.set("current", f"Card data is up to date (Scryfall {latest[:10]}).")
+                return
+            self.set("updating", f"Scryfall has new card data ({latest[:10]}). Updating; this takes a few minutes, and answers use the current data until it's done.")
+            steps = [[sys.executable, os.path.join(SITE, "build", "refresh_data.py"), "cards", "rulings", "prints"],
+                     [sys.executable, os.path.join(SITE, "build", "make_site.py")],
+                     [sys.executable, os.path.join(SITE, "build", "export_agent_data.py"), DATA]]
+            for cmd in steps:
+                r = subprocess.run(cmd, cwd=SITE, capture_output=True, text=True, timeout=1800)
+                out = (r.stdout + r.stderr).strip().splitlines()
+                if r.returncode != 0 or any("FAILED" in line for line in out):
+                    raise RuntimeError(next((l for l in out if "FAILED" in l), out[-1] if out else f"exit {r.returncode}")[:200])
+            self.write_stamp(latest)
+            self.set("updated", f"Card data updated from Scryfall ({latest[:10]}).")
+        except Exception as e:
+            self.set("error", f"Couldn't refresh the card data: {e}. The saved data is still in use; it will try again next time you open the app.")
+            self.last_check = 0.0
+        finally:
+            self.lock.release()
 
 
 def describe(tool, inp):
@@ -88,12 +161,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_error(403)
         path = self.path.split("?")[0]
         if path in ("/", "/index.html"):
+            self.server.refresher.trigger()   # every open or reload checks for new card data
             return self.send_file(os.path.join(HERE, "app.html"), "text/html; charset=utf-8")
         if path == "/symbols.json":
             return self.send_file(os.path.join(SITE, "build", "data", "symbols.json"), "application/json")
         m = re.fullmatch(r"/img/sym/([A-Za-z0-9_\-]+\.svg)", path)
         if m:
             return self.send_file(os.path.join(SITE, "img", "sym", m.group(1)), "image/svg+xml")
+        if path == "/api/refresh":
+            return self.json(self.server.refresher.state)
         if path == "/api/info":
             info = open(os.path.join(DATA, "info.txt")).read() if os.path.exists(os.path.join(DATA, "info.txt")) else ""
             return self.json({"claude": bool(self.server.claude), "data": info.strip()})
@@ -177,9 +253,11 @@ def main():
     ap = argparse.ArgumentParser(description="MTG Cards web app")
     ap.add_argument("--port", type=int, default=8790)
     ap.add_argument("--no-browser", action="store_true")
+    ap.add_argument("--no-refresh", action="store_true", help="don't check Scryfall for new card data when the page opens")
     args = ap.parse_args()
     srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     srv.claude = find_claude()
+    srv.refresher = Refresher(not args.no_refresh)
     url = f"http://127.0.0.1:{args.port}/"
     sys.stdout.reconfigure(line_buffering=True)
     print(f"MTG Cards is running at {url}  (Ctrl+C to stop)")

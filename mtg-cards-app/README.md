@@ -18,5 +18,6 @@ It opens http://127.0.0.1:8790 in your browser. Close the Terminal window (or pr
 
 - `server.py` serves `app.html` and runs each question through the real agent with the Claude Code CLI (`claude -p --agent mtg-cards`), using your Claude Code sign-in. Follow-up questions continue the same agent session; **New chat** starts over.
 - The agent reads the saved card data in `~/.claude/agents/mtg-judge-data/` (refresh it with `python3 build/export_agent_data.py` from the repo root) and may check Scryfall or Commander Spellbook. It can only run read-only lookups (grep, awk, cut, head, sort, wc, curl) and read files.
+- **Fresh data on every open:** each time the page is opened or reloaded, the server checks Scryfall (at most every 2 minutes). If Scryfall has newer card data than your saved copy, it refreshes cards, rulings and printings in the background, rebuilds the site files and re-exports the agents' data; a line under the question box shows the progress. This updates data files in the repo, so commit them when you're ready. Start with `--no-refresh` to turn it off.
 - The server only listens on 127.0.0.1 and refuses requests from other websites.
 - The CLI is found on PATH, or inside the Claude desktop app. Set `MTG_CLAUDE=/path/to/claude` to choose one.

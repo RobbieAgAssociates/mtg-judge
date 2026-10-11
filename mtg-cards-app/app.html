@@ -80,6 +80,11 @@ img.ms{width:1.05em;height:1.05em;vertical-align:-.16em;margin:0 1px}
 .composer{border-top:1px solid var(--line);background:var(--bg);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}
 .composer form{display:flex;gap:8px;align-items:end}
 .composer textarea{flex:1;min-width:0;font:inherit;resize:none;max-height:160px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}
+.refresh{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:13px;color:var(--muted)}
+.rdot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.refresh[data-s="checking"] .rdot,.refresh[data-s="updating"] .rdot{background:var(--brass);animation:pulse 1.2s infinite ease-in-out}
+.refresh[data-s="current"] .rdot,.refresh[data-s="updated"] .rdot{background:var(--accent)}
+.refresh[data-s="error"] .rdot{background:var(--bad)}
 .composer .hint{margin-top:6px;font-size:13px;color:var(--muted)}
 #zoom{position:fixed;inset:0;background:rgba(5,8,12,.82);display:grid;place-items:center;padding:20px;z-index:10;cursor:zoom-out}
 #zoom img{max-height:90vh;max-width:100%;border-radius:4.75%/3.5%;box-shadow:var(--shadow)}
@@ -105,6 +110,7 @@ img.ms{width:1.05em;height:1.05em;vertical-align:-.16em;margin:0 1px}
       <textarea id="q" rows="1" placeholder="Ask about any Magic card, printing, set or artist…" aria-label="Your question"></textarea>
       <button class="btn" id="send" type="submit">Ask</button>
     </form>
+    <div class="refresh" id="refresh" hidden><span class="rdot" aria-hidden="true"></span><span id="refreshtext"></span></div>
     <div class="hint" id="hint">Enter to send, Shift+Enter for a new line. Answers come from the mtg-cards agent running on this Mac.</div>
   </div>
 </div>
@@ -244,6 +250,16 @@ $("#q").addEventListener("input", grow);
 $("#q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing){ e.preventDefault(); ask($("#q").value); } });
 $("#form").onsubmit = e => { e.preventDefault(); ask($("#q").value); };
 $("#newchat").onclick = () => { if (state.busy) state.busy.abort(); state.turns = []; state.session = null; save(); render(); $("#q").focus(); };
+/* data refresh status: the server checks Scryfall whenever this page is opened or reloaded */
+let idlePolls = 0;
+async function pollRefresh(){
+  let st; try { st = await (await fetch("/api/refresh")).json(); } catch (e){ return; }
+  const box = $("#refresh");
+  if (!st.message || st.status === "idle"){ box.hidden = true; } else { box.hidden = false; box.dataset.s = st.status; $("#refreshtext").textContent = st.message; }
+  if (st.status === "checking" || st.status === "updating" || (st.status === "idle" && ++idlePolls < 5)) setTimeout(pollRefresh, st.status === "updating" ? 5000 : 1500);
+  if (st.status === "updated"){ const el = document.querySelector("#datainfo"); if (el) fetch("/api/info").then(r => r.json()).then(j => { el.textContent = j.data.replace(/\n/g, " "); }).catch(() => {}); }
+}
+pollRefresh();
 render(); scrollDown();
 </script>
 </body></html>
