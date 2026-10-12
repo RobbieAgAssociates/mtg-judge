@@ -198,6 +198,8 @@ main.banner-heads > .pagebanner + article > .deckhead:first-child{display:none}
 .rule .rn{font:500 13px/1.9 var(--mono);color:var(--accent);font-variant-numeric:tabular-nums}
 .rule .rt{white-space:pre-line;min-width:0;max-width:78ch}
 .rule.sub .rn{padding-left:1ch}
+.rule .fmt{display:inline-block;margin-left:8px;padding:0 7px;border:1px solid var(--line);border-radius:999px;font:500 11px/1.7 var(--mono);color:var(--muted);white-space:nowrap;vertical-align:1px}
+.rule .fmt.only{border-color:var(--accent);color:var(--accent)}
 .rule.focus{background:var(--you);border-radius:6px}
 .toc details{border-bottom:1px solid var(--line);padding:6px 0}
 .toc summary{cursor:pointer;font:700 18px var(--display)}
@@ -814,7 +816,8 @@ function deckPageEl(d){
 /* ---------- rules page ---------- */
 function ruleRow(r,ts){
   const el=document.createElement("div"); el.className="rule"+(/[a-z]$/.test(r.n)?" sub":"")+(state.focusRule===r.n?" focus":""); el.id="rule-"+r.n;
-  el.innerHTML=`<span class="rn">${r.n}</span><span class="rt">${linkRules(esc(r.t))}</span>`;
+  const sc=ruleScope(r.n);
+  el.innerHTML=`<span class="rn">${r.n}</span><span class="rt">${linkRules(esc(r.t))}<span class="fmt${sc.all?"":" only"}" title="${esc(sc.tip)}">${esc(sc.label)}</span></span>`;
   highlight(el,ts); return el;
 }
 function linkRules(html){
@@ -838,7 +841,7 @@ function rulesPage(main,ts){
   art.innerHTML=`<div class="deckhead"><h2>Comprehensive Rules</h2><span class="meta">${esc(CR.effective)} ${CR.rules.length.toLocaleString()} rules, ${CR.glossary.length} glossary terms.</span></div>`;
   if(ts.length){
     const qa=matchTopics(state.q,3);
-    if(qa.length){ const s=document.createElement("section"); s.className="sec"; s.innerHTML=`<h3>Quick answers</h3>${md(qa.map(topicBlock).join("\n\n"))}`; highlight(s,ts); art.appendChild(s); }
+    if(qa.length){ const s=document.createElement("section"); s.className="sec"; s.innerHTML=`<h3>Quick answers</h3>${md(qa.map(tp=>topicBlock(tp,true)).join("\n\n"))}`; highlight(s,ts); art.appendChild(s); }
     const hits=searchRules(state.q,60), gl=searchGlossary(state.q,6);
     const sec=document.createElement("section"); sec.className="sec";
     sec.innerHTML=`<h3>Matching rules</h3>`+(hits.length?"":`<p class="empty">No rules match.</p>`);
@@ -1101,10 +1104,11 @@ How to work:
    **Your question, restated:** the user's question rewritten precisely (cards, timing, format), followed by "Inferred answer:" and your first-pass answer in one sentence.
    **Judge check:** verify the inferred answer against the rules and official rulings you looked up, citing them. Say plainly if the check changes the answer.
    **Coach check:** the practical side: what the player should do, sequencing, risks, and anything in their deck that matters. The Coach never overrules the rules.
+   **By format:** one short bullet each for Commander, Brawl, Standard and other constructed formats, and Limited (Draft, Sealed), saying whether the answer is the same there or how it changes, with the rule that changes it. rules_index topics include by_format notes, and search_rules and get_rule say which games each rule applies_to. Never skip a format; write "Same rule." when nothing changes.
    **Final call (Judge):** one or two sentences with the ruling. The Judge decides; if Judge and Coach disagree, the Judge wins on anything rules-related.
    **Confidence: NN%** followed by 2–4 short bullets on why: what raises it (an explicit rule or official ruling covers it, card text is unambiguous) and what lowers it (missing details such as format, timing or controller; no ruling for this exact case; reasoning that combines several rules). Use about 90–99% when a rule or ruling states the answer directly, 70–89% when it follows clearly from several rules, 50–69% when it depends on details the user didn't give, and below 50% when the saved data doesn't really cover it.
    Match the user's level of detail, and keep each part short.
-6. Keep Commander and Standard rules separate. If the format matters and is unclear, answer for each under its own heading.
+6. Keep Commander and Standard rules separate. If the user names a format, lead with it in the Final call; if the format matters and is unclear, the By format part answers for each.
 7. For anything involving casting, responding or triggers, show the stack top item first in a code block, like:
 \`\`\`
 Stack (top → bottom):
@@ -1122,7 +1126,7 @@ const TOOLS = [
     execute:async(i)=>{ progress(`Looking up ${String(i.name||"")}`); const r=await lookupCard(String(i.name||"")); if(!r.length) throw new Error("No card named "+i.name+". Try search_all_cards."); return r.map(cardOut); }},
   {name:"rules_index", description:"Hand-checked answers to common rules questions (deathtouch + trample, responding, the stack, summoning sickness, commander tax/damage/zone, copies, triggers, etc.), each with the CR rules it comes from. Check it first, then verify with get_rule.",
     inputSchema:{type:"object",properties:{question:{type:"string"}},required:["question"]},
-    execute:(i)=>{ progress("Checking the rules index"); return matchTopics(String(i.question||""),3).map(tp=>({topic:tp.title,answer:tp.answer,rules:tp.rules})); }},
+    execute:(i)=>{ progress("Checking the rules index"); return matchTopics(String(i.question||""),3).map(tp=>({topic:tp.title,answer:tp.answer,rules:tp.rules,by_format:tp.formats})); }},
   {name:"get_card_rulings", description:"Official rulings for one card (Wizards of the Coast rulings first, then Scryfall notes), with dates. Use whenever a card's interaction is tricky.",
     inputSchema:{type:"object",properties:{name:{type:"string"}},required:["name"]},
     execute:async(i)=>{ progress(`Reading rulings for ${String(i.name||"")}`); const r=await rulingsFor(String(i.name||"")); if(!r.card) throw new Error("No card named "+i.name); return {card:r.card,rulings:r.rulings.slice(0,20)}; }},
@@ -1157,10 +1161,10 @@ const TOOLS = [
     execute:()=>{ progress("Reading the current game"); return GAME.g?gameSummary(GAME.g,25):"No game is being tracked right now."; }},
   {name:"search_rules", description:"Keyword search of the Comprehensive Rules. Returns up to 8 best-matching rules as {n (rule number), section, t (text)}. Use plain keywords (e.g. 'trample deathtouch damage assignment') or a rule number.",
     inputSchema:{type:"object",properties:{query:{type:"string"}},required:["query"]},
-    execute:(i)=>{ progress(`Searching rules for “${String(i.query||"")}”`); return searchRules(String(i.query||""),8).map(r=>({n:r.n,section:SECTION.get(r.n.slice(0,3))?.t,t:r.t.slice(0,900)})); }},
+    execute:(i)=>{ progress(`Searching rules for “${String(i.query||"")}”`); return searchRules(String(i.query||""),8).map(r=>({n:r.n,section:SECTION.get(r.n.slice(0,3))?.t,applies_to:ruleScope(r.n).label,t:r.t.slice(0,900)})); }},
   {name:"get_rule", description:"Exact text of one rule and its lettered subrules, e.g. '702.19' returns 702.19a, 702.19b… A three-digit number like '903' returns that whole section (may be cut short). Returns [{n, t}].",
     inputSchema:{type:"object",properties:{number:{type:"string"}},required:["number"]},
-    execute:(i)=>{ const n=String(i.number||"").replace(/^cr\s*/i,"").trim(); progress(`Reading rule ${n}`); const f=ruleFamily(n); if(!f.length) throw new Error("No rule "+n+" in the saved Comprehensive Rules."); return {section:SECTION.get(n.slice(0,3))?.t, rules:f}; }},
+    execute:(i)=>{ const n=String(i.number||"").replace(/^cr\s*/i,"").trim(); progress(`Reading rule ${n}`); const f=ruleFamily(n); if(!f.length) throw new Error("No rule "+n+" in the saved Comprehensive Rules."); return {section:SECTION.get(n.slice(0,3))?.t, applies_to:ruleScope(f[0].n).label, rules:f}; }},
   {name:"search_glossary", description:"Search the Comprehensive Rules glossary for a term (e.g. 'proliferate', 'state-based actions'). Returns up to 4 {term, def}.",
     inputSchema:{type:"object",properties:{term:{type:"string"}},required:["term"]},
     execute:(i)=>{ progress(`Checking the glossary for “${String(i.term||"")}”`); return searchGlossary(String(i.term||""),4); }},
@@ -1470,7 +1474,67 @@ function matchTopics(text,max=2){
   return TOPICS.map(tp=>{ let s=tp.match.length*10; for(const g of tp.match){ const hit=g.find(a=>l.includes(a)); if(!hit) return null; s+=hit.length; } return {tp,s}; })
     .filter(Boolean).sort((a,b)=>b.s-a.s).slice(0,max).map(x=>x.tp);
 }
-function topicBlock(tp){ return `**${tp.title}:** ${tp.answer}\n`+tp.rules.map(n=>{ const i=RULE.get(n); return i==null?"":`- **CR ${n}** ${clip(CR.rules[i].t,420)}`; }).filter(Boolean).join("\n"); }
+function topicBlock(tp,withFormats){ return `**${tp.title}:** ${tp.answer}\n`+tp.rules.map(n=>{ const i=RULE.get(n); return i==null?"":`- **CR ${n}** ${clip(CR.rules[i].t,420)}`; }).filter(Boolean).join("\n")+(withFormats?"\n\n*By format*\n"+formatLines(tp.formats).join("\n"):""); }
+
+/* Formats: every explanation says how it applies in each one */
+const FORMATS=[["commander","Commander"],["brawl","Brawl"],["constructed","Standard and other constructed formats"],["limited","Limited (Draft, Sealed)"]];
+const formatLines=f=>FORMATS.map(([k,l])=>`- **${l}:** ${f[k]}`);
+/* Which games a CR rule applies to, from its section and its own wording ("In a Commander game…", "In constructed play…") */
+const SCOPE_CACHE=new Map();
+// Rules in the core sections that only matter for some games but don't open with "In a … game"
+const SCOPE_FIX={"311":"Planechase","312":"Planechase","313":"Vanguard","314":"Archenemy","315":"Conspiracy Draft",
+  "100.2c":"Commander","702.49d":"Commander","702.124a":"Commander","729.2c":"Commander","729.5c":"Commander",
+  "206.4":"Constructed","405.6h":"multiplayer","506.2a":"multiplayer","507.1":"multiplayer","703.4h":"multiplayer","727.7":"multiplayer",
+  "506.2b":"multiplayer","121.2d":"multiplayer","119.4a":"Two-Headed Giant","505.3":"Archenemy","701.31a":"Planechase","701.32a":"Archenemy","701.33a":"Archenemy",
+  "729.2b":"Vanguard","729.5b":"Vanguard"};
+function ruleScope(n){
+  if(SCOPE_CACHE.has(n)) return SCOPE_CACHE.get(n);
+  const sec=n.slice(0,3), i=RULE.get(n), t=i==null?"":CR.rules[i].t;
+  const mk=(label,kind,tip)=>({label,kind,all:kind==="all",tip:tip||`This rule applies in ${label} games.`});
+  let sc=null;
+  if(sec==="903"){
+    if(/^903\.12/.test(n)) sc=mk("Brawl","brawl","Brawl option: changes to the Commander rules for Brawl games.");
+    else if(/^903\.13/.test(n)) sc=mk("Commander Draft","cdraft","Commander Draft option: drafting a pool, then playing by the Commander rules.");
+    else if(/^903\.10/.test(n)) sc=mk("Commander (not Brawl)","commander","Commander only; Brawl doesn't use commander damage (CR 903.12h).");
+    else sc=mk("Commander","commander","Commander rules. Brawl and Commander Draft use them too, except where CR 903.12 and 903.13 change them.");
+  }
+  else if(sec>="900") sc=mk(sec==="900"?"Casual variants":SECTION.get(sec)?.t||"Casual variant","variant","Casual variant: only when everyone agrees to play it.");
+  else if(sec>="800"){ const st=(SECTION.get(sec)?.t||"").replace(/ (Variant|Option)$/,""); sc=sec==="800"?mk("Multiplayer","multi","Multiplayer games, including multiplayer Commander and Brawl."):sec==="810"?mk("Two-Headed Giant","2hg"):mk("Multiplayer: "+st,"multi","A multiplayer option or variant; it applies only when the game uses it."); }
+  else {
+    // a fixed scope reads like the opening clause the rule would have had
+    const fix=SCOPE_FIX[n]||SCOPE_FIX[sec], head=fix?(fix==="Constructed"?"In constructed play":`In a ${fix} game`):t; let m;
+    if(/^In constructed play/i.test(head)) sc=mk("Constructed","constructed","Constructed formats: Standard, Pioneer, Modern, Legacy, Vintage, Pauper and others.");
+    else if(/^In limited play/i.test(head)) sc=mk("Limited","limited","Limited formats: Draft and Sealed.");
+    else if(m=head.match(/^In (?:a|an|any|all other) (Commander|Brawl|Two-Headed Giant|multiplayer|two-player|Archenemy|Planechase|Vanguard|Conspiracy Draft|Emperor)\b[^.]*? game/)){
+      const v=m[1], brawl=/\bBrawl\b/.test(head.split(/(?<=\.)\s/)[0])&&v!=="Brawl";
+      sc=v==="Commander"?mk(/704\.6c|104\.3j/.test(n)?"Commander (not Brawl)":"Commander","commander")
+        :v==="multiplayer"?mk(brawl?"Multiplayer and Brawl":"Multiplayer","multi","Multiplayer games, including multiplayer Commander and Brawl.")
+        :v==="two-player"?mk("Two-player","two","Two-player games only.")
+        :v==="Two-Headed Giant"?mk("Two-Headed Giant","2hg"):v==="Brawl"?mk("Brawl","brawl"):mk(v,"variant","Casual variant: only when everyone agrees to play it.");
+    }
+    else if(/[a-z]$/.test(n)){ const parent=n.replace(/[a-z]$/,""); if(RULE.has(parent)){ const ps=ruleScope(parent); if(!ps.all) sc=ps; } }
+  }
+  sc=sc||mk("All formats","all","A core game rule: the same in Commander, Brawl, Standard and other constructed formats, and Limited.");
+  SCOPE_CACHE.set(n,sc); return sc;
+}
+/* By-format lines for a rule with no hand-written notes, from its scope */
+function scopeFormats(n){
+  const sc=ruleScope(n), cr=`CR ${n}`, f={};
+  const no=why=>`Doesn't apply: ${why}.`;
+  switch(sc.kind){
+    case "all": for(const [k] of FORMATS) f[k]=`Same rule: ${cr} is a core game rule.`; f.commander+=" Commander starts at 40 life, plays multiplayer, and adds commander tax, the command zone and commander damage (CR 903)."; f.brawl+=" Brawl starts at 25 life (30 in multiplayer) and uses the Commander rules without commander damage (CR 903.12)."; break;
+    case "commander": f.commander=`Applies (${cr}).`; f.brawl=/not Brawl/.test(sc.label)?no("Brawl doesn't use commander damage (CR 903.12h)"):`Applies, except where the Brawl rules change it (CR 903.12).`; f.constructed=no("it's a Commander rule"); f.limited=no("it's a Commander rule, except in Commander Draft (CR 903.13g)"); break;
+    case "brawl": f.brawl=`Applies (${cr}).`; f.commander=no("it changes the Commander rules only for Brawl"); f.constructed=no("it's a Brawl rule"); f.limited=no("it's a Brawl rule"); break;
+    case "cdraft": f.limited=`Applies only to Commander Draft (${cr}).`; f.commander=`Only in Commander Draft (${cr}).`; f.brawl=no("it's a Commander Draft rule"); f.constructed=no("it's a Commander Draft rule"); break;
+    case "constructed": f.constructed=`Applies (${cr}).`; f.commander=no("Commander has its own deck rules (CR 903.5)"); f.brawl=no("Brawl has its own deck rules (CR 903.12d)"); f.limited=no("Limited has its own deck rules (CR 100.2b)"); break;
+    case "limited": f.limited=`Applies (${cr}).`; for(const k of ["commander","brawl","constructed"]) f[k]=no("it's a Limited rule"); break;
+    case "multi": f.commander=`Applies in multiplayer Commander games (${cr}).`; f.brawl=`Applies in multiplayer Brawl games (${cr}).`; f.constructed=`Only in a multiplayer game (${cr}); a normal two-player match doesn't use it.`; f.limited=`Only in a multiplayer game such as Two-Headed Giant (${cr}).`; break;
+    case "2hg": f.limited=`Applies in Two-Headed Giant (${cr}), which is often played as Limited.`; for(const k of ["commander","brawl","constructed"]) f[k]=`Only in a Two-Headed Giant game (${cr}).`; break;
+    case "two": for(const [k] of FORMATS) f[k]=`Applies in two-player games (${cr}).`; f.commander=`Only in a two-player (duel) Commander game (${cr}).`; break;
+    default: for(const [k] of FORMATS) f[k]=`Only when playing the ${sc.label} variant (${cr}).`;
+  }
+  return f;
+}
 
 /* The saved deck notes that best match a question, one bullet at a time */
 function deckNotes(q,cards,ws){
@@ -1537,6 +1601,10 @@ async function lookupChat(q){
   if(cards.length>=2){ try{ const cb=await findCombos(cards.slice(0,3).map(c=>c.name),2); if(cb.length) coach.push("Known combos with these cards: "+cb.map(x=>`${x.cards.join(" + ")} (${x.results.slice(0,2).join(", ")})`).join("; ")); }catch(e){} }
   const ex=await extrasBlock(ws.length?rest:q,cards); if(ex) coach.push(ex);
   parts.push("### Coach check\n"+(coach.join("\n\n")||"No saved strategy notes match this question."));
+  // By format: how the answer applies in Commander, Brawl, constructed and Limited
+  const fmtRule=topics.length?null:(lead?lead.n:null);
+  if(topics.length) parts.push(`### By format\n${topics.length>1?`*${topics[0].title}*\n`:""}${formatLines(topics[0].formats).join("\n")}`+(topics.length>1?`\n\n*${topics[1].title}*\n${formatLines(topics[1].formats).join("\n")}`:""));
+  else if(fmtRule) parts.push(`### By format\n${formatLines(scopeFormats(fmtRule)).join("\n")}${bestRuling&&bestRuling.cov>=0.5?"\n\nOfficial card rulings apply in every format where the card is legal.":""}`);
   // Final call with an evidence-based confidence
   let conf=25; const why=[];
   const usedRuling=!note&&!topics.length&&bestRuling&&bestRuling.cov>=0.5, cov=(note||topics.length)?0:(usedRuling?bestRuling.cov:(lead?coverage(leadSentence,ws):0));
@@ -1574,7 +1642,7 @@ async function lookupMove(e,g){
   const parts=[];
   parts.push(cards.length?"### Cards in this move\n"+await cardBlock(cards,ws):"### Cards in this move\nNo card names recognized. Use exact card names so the Judge can look them up.");
   const mt=matchTopics(e.text+" "+cards.map(c=>c.text).join(" "),2);
-  if(mt.length) parts.push("### Rules index\n"+mt.map(topicBlock).join("\n\n"));
+  if(mt.length) parts.push("### Rules index\n"+mt.map(tp=>topicBlock(tp,true)).join("\n\n"));
   const fromMove=keywordRules(e.text), fromCards=keywordRules(cards.map(c=>c.text).join(" ")).filter(r=>r.n.startsWith("702"));
   const kwRules=[...fromMove,...fromCards.filter(r=>!fromMove.some(m=>m.n===r.n))], seen=new Set(kwRules.map(r=>r.n));
   const moveRules=ws.length?searchRules(rest,3).filter(r=>!seen.has(r.n)):[];

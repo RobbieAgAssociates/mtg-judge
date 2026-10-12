@@ -29,6 +29,10 @@ stats = {
     "releaseSets": len(notes), "releaseFirst": notes[0]["set"] if notes else "", "releaseLast": notes[-1]["set"] if notes else "",
     "judgeTips": len(tips),
 }
+# Every hand-checked topic explains itself for each format the page shows (FORMATS in the template).
+FORMATS = ("commander", "brawl", "constructed", "limited")
+gaps = [(tp["id"], f) for tp in json.load(open(os.path.join(D, "topics.json"))) for f in FORMATS if not tp.get("formats", {}).get(f, "").strip()]
+assert not gaps, f"topics.json is missing format notes: {gaps}"
 sub = {"__DATA__": js("pagedata.json"), "__CR__": js("cr/cr.json"), "__EDHREC__": js("edhrec.json"),
        "__DECKMETA__": js("deckmeta.json"), "__SYMBOLS__": rd("symbols.json"), "__ART__": js("art.json"),
        "__PRECONMETA__": js("precon_meta.json"), "__TOPICS__": js("topics.json"), "__STATS__": json.dumps(stats),
